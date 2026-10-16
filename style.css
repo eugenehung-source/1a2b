@@ -273,6 +273,26 @@ button:focus-visible {
 
 .pill.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
 
+.next { color: var(--muted); font-size: 0.9rem; }
+
+#countdown { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+.share-fallback {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: none;
+}
+
+#daily-label { font-weight: 600; color: var(--text); }
+
 /* Pad */
 .pad { padding-top: 6px; }
 
