@@ -1,6 +1,6 @@
 import { DIFFICULTIES, score, validateGuess, randomSecret } from './game.js';
 import { dailyNumber, dailySecret, msUntilNextDay, DAILY_LENGTH, DAILY_MAX } from './daily.js';
-import { emptyStats, recordResult } from './stats.js';
+import { emptyStats, recordResult, displayStreak } from './stats.js';
 import { shareText } from './share.js';
 import { load, save } from './storage.js';
 
@@ -8,7 +8,12 @@ const KEYS = {
   stats: '1a2b:v1:stats',
   difficulty: '1a2b:v1:difficulty',
   daily: '1a2b:v1:daily',
+  seenHelp: '1a2b:v1:seenHelp',
 };
+
+const MARK_CYCLE = { unknown: 'present', present: 'absent', absent: 'unknown' };
+const MARK_LABEL = { unknown: '', present: '（一定有）', absent: '（一定沒有）' };
+const LONG_PRESS_MS = 500;
 
 const ERRORS = {
   length: (n) => `請輸入 ${n} 位數字`,
@@ -27,6 +32,8 @@ if (!DIFFICULTIES[difficulty]) difficulty = 'normal';
 let stats;
 const games = { daily: null, practice: null };
 let game;
+let markMode = false;
+let celebrateNext = false;
 
 function validStats(s, maxGuesses) {
   return (
@@ -123,6 +130,19 @@ function typeDigit(d) {
   render();
 }
 
+function toggleMark(d) {
+  if (game.over) return;
+  const i = Number(d);
+  game.marks[i] = MARK_CYCLE[game.marks[i]] ?? 'present';
+  if (game.kind === 'daily') saveDaily(game);
+  renderPad();
+}
+
+function setMarkMode(on) {
+  markMode = on;
+  renderPad();
+}
+
 function deleteDigit() {
   if (game.over || !game.input) return;
   game.input = game.input.slice(0, -1);
@@ -141,8 +161,13 @@ function submit() {
   game.input = '';
   if (game.kind === 'daily') saveDaily(game);
   if (game.over) recordFinish(game);
+  celebrateNext = game.won;
   setMessage(`第 ${game.guesses.length} 次：${result.a}A${result.b}B`);
   render();
+  if (game.over && game.kind === 'daily') {
+    const finished = game;
+    setTimeout(() => { if (game === finished) openStats(); }, 900);
+  }
 }
 
 function setMode(mode) {
@@ -169,27 +194,35 @@ function newGame() {
   render();
 }
 
-function share() {
+function share(e) {
+  const button = e?.currentTarget;
   const g = games.daily;
   const url = location.origin + location.pathname;
   const text = shareText(g.day, g.results, g.maxGuesses, url);
   const fallback = () => showShareFallback(text);
   if (!navigator.clipboard?.writeText) return fallback();
-  navigator.clipboard.writeText(text).then(
-    () => setMessage('已複製戰績，貼給朋友吧！'),
-    fallback,
-  );
+  navigator.clipboard.writeText(text).then(() => {
+    setMessage('已複製戰績，貼給朋友吧！');
+    // the message line is hidden behind an open dialog, so confirm on the button too
+    if (button) {
+      button.textContent = '已複製！';
+      setTimeout(() => { button.textContent = '分享'; }, 1500);
+    }
+  }, fallback);
 }
 
 function showShareFallback(text) {
+  // inside the stats dialog when it is open, otherwise under the banner
+  const host = $('stats-dialog').open ? $('stats-foot') : $('banner');
   let box = $('share-fallback');
-  if (!box) {
+  if (!box || box.parentElement !== host) {
+    box?.remove();
     box = document.createElement('textarea');
     box.id = 'share-fallback';
     box.className = 'share-fallback';
     box.readOnly = true;
     box.setAttribute('aria-label', '分享文字');
-    $('banner').append(box);
+    host.append(box);
   }
   box.value = text;
   box.rows = text.split('\n').length;
@@ -266,7 +299,8 @@ function renderHistory() {
   for (let i = rendered; i < game.guesses.length; i++) {
     const { a, b } = game.results[i];
     const li = document.createElement('li');
-    li.className = 'row' + (a === game.length ? ' win' : '');
+    const win = a === game.length;
+    li.className = 'row' + (win ? ' win' : '') + (win && celebrateNext ? ' celebrate' : '');
     li.innerHTML = `
       <span class="row-n">${i + 1}.</span>
       <span class="row-digits">${game.guesses[i]}</span>
@@ -275,6 +309,7 @@ function renderHistory() {
       </span>`;
     list.append(li);
   }
+  celebrateNext = false;
   $('empty-hint').hidden = game.guesses.length > 0;
   if (list.children.length > rendered) list.lastElementChild.scrollIntoView({ block: 'nearest' });
 }
@@ -312,7 +347,7 @@ function renderBanner() {
   const actions = $('banner-actions');
   actions.replaceChildren();
   if (game.kind === 'daily') {
-    actions.append(pill('分享', share, true));
+    actions.append(pill('分享', share, true), pill('統計', () => openStats()));
     const next = document.createElement('span');
     next.className = 'next';
     next.innerHTML = '下一題 <span id="countdown"></span>';
@@ -325,9 +360,17 @@ function renderBanner() {
 
 function renderPad() {
   for (const key of document.querySelectorAll('.key')) {
-    key.classList.toggle('used', game.input.includes(key.dataset.digit));
+    const d = key.dataset.digit;
+    const mark = game.marks[Number(d)];
+    key.classList.toggle('used', game.input.includes(d));
+    key.classList.toggle('present', mark === 'present');
+    key.classList.toggle('absent', mark === 'absent');
+    key.setAttribute('aria-label', `數字 ${d}${MARK_LABEL[mark] ?? ''}`);
     key.disabled = game.over;
   }
+  $('mark-btn').setAttribute('aria-pressed', String(markMode));
+  $('mark-btn').disabled = game.over;
+  document.querySelector('.pad').classList.toggle('marking', markMode && !game.over);
   $('del-btn').disabled = game.over;
   $('enter-btn').disabled = game.over;
 }
@@ -352,6 +395,58 @@ function render() {
   renderPad();
 }
 
+// ---------- dialogs ----------
+
+let statsTab = 'daily';
+
+function openStats(tab = game.kind === 'daily' ? 'daily' : game.difficulty) {
+  statsTab = tab;
+  renderStats();
+  const dialog = $('stats-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+
+function card(value, label) {
+  return `<div class="card"><span class="card-value">${value}</span><span class="card-label">${label}</span></div>`;
+}
+
+function renderStats() {
+  const s = stats[statsTab];
+  for (const t of document.querySelectorAll('#stats-tabs [role="tab"]')) {
+    t.setAttribute('aria-selected', String(t.dataset.tab === statsTab));
+  }
+  const winRate = s.played ? Math.round((s.wins / s.played) * 100) : 0;
+  const cards = [card(s.played, '遊玩次數'), card(winRate, '勝率 %')];
+  if (statsTab === 'daily') {
+    cards.push(card(displayStreak(s, dailyNumber(new Date())), '目前連勝'), card(s.maxStreak, '最長連勝'));
+  } else {
+    cards.push(card(s.best ?? '–', '最佳次數'));
+  }
+  $('stat-cards').innerHTML = cards.join('');
+
+  // highlight the bar of the game that just finished, if it belongs to this tab
+  const shown = statsTab === 'daily' ? games.daily : games.practice.difficulty === statsTab ? games.practice : null;
+  const current = shown?.over ? (shown.won ? shown.guesses.length - 1 : s.dist.length - 1) : -1;
+  const peak = Math.max(1, ...s.dist);
+  $('dist').innerHTML = s.dist
+    .map((n, i) => {
+      const label = i === s.dist.length - 1 ? '失敗' : i + 1;
+      const width = Math.max(8, Math.round((n / peak) * 100));
+      return `<div class="dist-row"><span class="dist-label">${label}</span>` +
+        `<span class="dist-bar${i === current ? ' current' : ''}" style="width:${width}%">${n}</span></div>`;
+    })
+    .join('');
+
+  const foot = $('stats-foot');
+  foot.replaceChildren();
+  if (statsTab === 'daily' && games.daily.over) foot.append(pill('分享', share, true));
+}
+
+function openHelp() {
+  const dialog = $('help-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+
 // ---------- events ----------
 
 // e.code identifies the physical key, so Shift+3 is still "3" (e.key would be
@@ -367,9 +462,10 @@ function onKeyDown(e) {
   if (document.querySelector('dialog[open]')) return;
   if (e.target instanceof HTMLTextAreaElement) return;
   const d = digitFromEvent(e);
-  if (d !== null && !e.shiftKey) {
+  if (d !== null) {
     e.preventDefault();
-    typeDigit(d);
+    if (e.shiftKey) toggleMark(d);
+    else typeDigit(d);
   } else if (e.key === 'Backspace') {
     e.preventDefault();
     deleteDigit();
@@ -381,12 +477,69 @@ function onKeyDown(e) {
   }
 }
 
+// Long-press on touch marks a digit; the click that follows the press is
+// swallowed so the digit isn't also typed.
+function wireDigitKeys() {
+  const digits = $('digits');
+  let pressTimer = null;
+  let swallowClick = false;
+  let lastPointer = 'mouse';
+  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+
+  digits.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('.key');
+    lastPointer = e.pointerType;
+    swallowClick = false;
+    if (!key || e.pointerType === 'mouse') return;
+    pressTimer = setTimeout(() => {
+      swallowClick = true;
+      toggleMark(key.dataset.digit);
+      navigator.vibrate?.(15);
+    }, LONG_PRESS_MS);
+  });
+  for (const type of ['pointerup', 'pointerleave', 'pointercancel']) {
+    digits.addEventListener(type, cancelPress);
+  }
+
+  digits.addEventListener('click', (e) => {
+    const key = e.target.closest('.key');
+    if (!key) return;
+    if (swallowClick) {
+      swallowClick = false;
+      return;
+    }
+    if (markMode) toggleMark(key.dataset.digit);
+    else typeDigit(key.dataset.digit);
+  });
+
+  // Right-click marks with a mouse; on touch the long-press timer already did.
+  digits.addEventListener('contextmenu', (e) => {
+    const key = e.target.closest('.key');
+    if (!key) return;
+    e.preventDefault();
+    if (lastPointer === 'mouse') toggleMark(key.dataset.digit);
+  });
+}
+
+function wireDialogs() {
+  for (const dialog of document.querySelectorAll('dialog')) {
+    for (const b of dialog.querySelectorAll('.close')) b.addEventListener('click', () => dialog.close());
+    // a click on the backdrop lands on the dialog element itself
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+  }
+  $('stats-btn').addEventListener('click', () => openStats());
+  $('help-btn').addEventListener('click', openHelp);
+  $('stats-tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]');
+    if (t) { statsTab = t.dataset.tab; renderStats(); }
+  });
+}
+
 function wire() {
   buildDigits();
-  $('digits').addEventListener('click', (e) => {
-    const key = e.target.closest('.key');
-    if (key) typeDigit(key.dataset.digit);
-  });
+  wireDigitKeys();
+  wireDialogs();
+  $('mark-btn').addEventListener('click', () => setMarkMode(!markMode));
   $('del-btn').addEventListener('click', deleteDigit);
   $('enter-btn').addEventListener('click', submit);
   for (const b of document.querySelectorAll('.mode')) {
@@ -408,3 +561,8 @@ game = games.daily;
 
 wire();
 render();
+
+if (!load(KEYS.seenHelp, false)) {
+  openHelp();
+  save(KEYS.seenHelp, true);
+}
