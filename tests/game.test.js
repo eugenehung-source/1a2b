@@ -48,7 +48,7 @@ describe('randomSecret', () => {
   it('always yields distinct digits of the requested length', () => {
     for (let i = 0; i < 1000; i++) {
       const s = randomSecret(5);
-      expect(s).toMatch(/^d{5}$/);
+      expect(s).toMatch(/^\d{5}$/);
       expect(new Set(s).size).toBe(5);
     }
   });
