@@ -1,10 +1,10 @@
 # 1A2B 每日猜數字
 
-![test](../../actions/workflows/test.yml/badge.svg)
+[![test](https://github.com/eugenehung-source/1a2b/actions/workflows/test.yml/badge.svg)](https://github.com/eugenehung-source/1a2b/actions/workflows/test.yml)
 
 一個手機、電腦都能玩的 1A2B 猜數字網頁遊戲：每天一題、可以分享戰績，也可以隨時練習。
 
-**👉 立即遊玩：<https://YOUR-ACCOUNT.github.io/1a2b/>**
+**👉 立即遊玩：<https://eugenehung-source.github.io/1a2b/>**
 
 ## 玩法
 
