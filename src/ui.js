@@ -82,8 +82,15 @@ function loadDaily(day) {
   return g;
 }
 
+function dailyRecordedElsewhere(g) {
+  const saved = load(KEYS.daily, {});
+  return saved.day === g.day && saved.recorded === true;
+}
+
 function saveDaily(g) {
-  save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, recorded: g.recorded });
+  // never clear a "recorded" flag another tab already wrote for this day
+  const recorded = g.recorded || dailyRecordedElsewhere(g);
+  save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, recorded });
 }
 
 const inProgress = (g) => g.guesses.length > 0 && !g.over;
@@ -104,9 +111,15 @@ function applyGuess(g, guess) {
 }
 
 function recordFinish(g) {
+  // Another tab may have saved newer stats since this page loaded: build on
+  // what is stored, not on this tab's copy, or that tab's result is lost.
+  stats = loadStats();
   const result = { won: g.won, guesses: g.guesses.length };
   if (g.kind === 'daily') {
-    if (g.recorded) return;
+    if (g.recorded || dailyRecordedElsewhere(g)) {
+      g.recorded = true;
+      return;
+    }
     stats.daily = recordResult(stats.daily, { ...result, dayNumber: g.day });
     g.recorded = true;
     saveDaily(g);
@@ -159,10 +172,12 @@ function submit() {
   }
   const result = applyGuess(game, game.input);
   game.input = '';
+  if (game.over) game.finishedDay = dailyNumber(new Date());
   if (game.kind === 'daily') saveDaily(game);
   if (game.over) recordFinish(game);
   celebrateNext = game.won;
-  setMessage(`第 ${game.guesses.length} 次：${result.a}A${result.b}B`);
+  const answer = game.over && !game.won ? `，答案是 ${game.secret}` : '';
+  setMessage(`第 ${game.guesses.length} 次：${result.a}A${result.b}B${answer}`);
   render();
   if (game.over && game.kind === 'daily') {
     const finished = game;
@@ -231,20 +246,26 @@ function showShareFallback(text) {
   setMessage('無法自動複製，請手動複製上面的文字');
 }
 
+function swapInDaily(today) {
+  const wasShowing = game === games.daily;
+  games.daily = loadDaily(today);
+  if (wasShowing) {
+    game = games.daily;
+    setMessage('新的一題來了！');
+  }
+  render();
+  if ($('stats-dialog').open) renderStats();
+}
+
 // Called every second: keeps the countdown fresh and swaps in the new daily
-// puzzle once the finished one is from a past day. An unfinished daily game
-// keeps going until reload.
+// puzzle at the first midnight after the daily game was finished. An
+// unfinished daily game keeps going until reload, and one finished after
+// midnight keeps its result on screen (with a link to today's puzzle).
 function tick() {
   const today = dailyNumber(new Date());
   const daily = games.daily;
-  if (daily.over && daily.day !== today) {
-    const wasShowing = game === daily;
-    games.daily = loadDaily(today);
-    if (wasShowing) {
-      game = games.daily;
-      setMessage('新的一題來了！');
-    }
-    render();
+  if (daily.over && today > (daily.finishedDay ?? daily.day)) {
+    swapInDaily(today);
     return;
   }
   const el = $('countdown');
@@ -348,11 +369,16 @@ function renderBanner() {
   actions.replaceChildren();
   if (game.kind === 'daily') {
     actions.append(pill('分享', share, true), pill('統計', () => openStats()));
-    const next = document.createElement('span');
-    next.className = 'next';
-    next.innerHTML = '下一題 <span id="countdown"></span>';
-    actions.append(next);
-    $('countdown').textContent = formatCountdown(msUntilNextDay(new Date()));
+    const today = dailyNumber(new Date());
+    if (game.day !== today) {
+      actions.append(pill('前往今天的題目', () => swapInDaily(today)));
+    } else {
+      const next = document.createElement('span');
+      next.className = 'next';
+      next.innerHTML = '下一題 <span id="countdown"></span>';
+      actions.append(next);
+      $('countdown').textContent = formatCountdown(msUntilNextDay(new Date()));
+    }
   } else {
     actions.append(pill('再來一局', newGame, true));
   }
@@ -464,14 +490,19 @@ function onKeyDown(e) {
   const d = digitFromEvent(e);
   if (d !== null) {
     e.preventDefault();
+    // typing a guess moves focus off any button clicked earlier, so the
+    // Enter that follows submits instead of re-activating that button
+    if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
     if (e.shiftKey) toggleMark(d);
     else typeDigit(d);
   } else if (e.key === 'Backspace') {
     e.preventDefault();
     deleteDigit();
   } else if (e.key === 'Enter') {
-    // let Enter activate a focused button other than the pad
-    if (e.target instanceof HTMLButtonElement && !e.target.closest('.pad')) return;
+    // Enter keeps its native meaning on result-banner buttons and on buttons
+    // reached by keyboard (focus ring visible); otherwise it submits.
+    const t = e.target;
+    if (t instanceof HTMLButtonElement && !t.closest('.pad') && (t.closest('.banner') || t.matches(':focus-visible'))) return;
     e.preventDefault();
     submit();
   }
