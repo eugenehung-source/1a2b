@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="每天一題的 1A2B 猜數字遊戲，也可以自由練習。">
+  <title>1A2B 每日猜數字</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1 class="logo">1A2B</h1>
+      <div class="modes" role="group" aria-label="模式">
+        <button type="button" class="mode" data-mode="daily" aria-pressed="false">每日</button>
+        <button type="button" class="mode" data-mode="practice" aria-pressed="false">練習</button>
+      </div>
+      <div class="icons">
+        <button type="button" class="icon" id="help-btn" aria-label="遊戲說明">❓</button>
+        <button type="button" class="icon" id="stats-btn" aria-label="統計">📊</button>
+      </div>
+    </header>
+
+    <div class="subbar">
+      <span id="daily-label" hidden></span>
+      <div id="difficulty" class="difficulty" role="group" aria-label="難度" hidden>
+        <button type="button" data-difficulty="easy" aria-pressed="false">簡單</button>
+        <button type="button" data-difficulty="normal" aria-pressed="false">普通</button>
+        <button type="button" data-difficulty="hard" aria-pressed="false">困難</button>
+        <button type="button" id="new-game" class="link">新的一局</button>
+      </div>
+    </div>
+
+    <main class="board">
+      <ol id="history" class="history" aria-label="猜測紀錄"></ol>
+      <p id="empty-hint" class="empty-hint">輸入不重複的數字，看看有幾 A 幾 B。</p>
+    </main>
+
+    <section class="status">
+      <div id="entry" class="entry">
+        <div id="slots" class="slots" aria-label="目前輸入"></div>
+        <span id="count" class="count"></span>
+      </div>
+      <div id="banner" class="banner" hidden>
+        <p id="banner-text" class="banner-text"></p>
+        <div id="banner-actions" class="banner-actions"></div>
+      </div>
+      <p id="message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section class="pad" aria-label="數字鍵盤">
+      <div id="digits" class="digits"></div>
+      <div class="actions">
+        <button type="button" id="del-btn" class="action">刪除</button>
+        <button type="button" id="mark-btn" class="action mark-toggle" aria-pressed="false" aria-label="標記模式">✏️ 標記</button>
+        <button type="button" id="enter-btn" class="action primary">送出</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="src/ui.js"></script>
+</body>
+</html>
