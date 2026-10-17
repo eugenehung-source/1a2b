@@ -17,7 +17,6 @@ const LONG_PRESS_MS = 500;
 
 const ERRORS = {
   length: (n) => `請輸入 ${n} 位數字`,
-  duplicate: () => '數字不能重複',
   repeated: () => '這組已經猜過了',
 };
 
@@ -133,10 +132,6 @@ function recordFinish(g) {
 
 function typeDigit(d) {
   if (game.over) return;
-  if (game.input.includes(d)) {
-    shake(keyEl(d));
-    return;
-  }
   if (game.input.length >= game.length) return;
   game.input += d;
   setMessage('');
@@ -280,8 +275,6 @@ function formatCountdown(ms) {
 
 // ---------- rendering ----------
 
-const keyEl = (d) => document.querySelector(`.key[data-digit="${d}"]`);
-
 function shake(el) {
   if (!el) return;
   el.classList.remove('shake');
@@ -388,7 +381,6 @@ function renderPad() {
   for (const key of document.querySelectorAll('.key')) {
     const d = key.dataset.digit;
     const mark = game.marks[Number(d)];
-    key.classList.toggle('used', game.input.includes(d));
     key.classList.toggle('present', mark === 'present');
     key.classList.toggle('absent', mark === 'absent');
     key.setAttribute('aria-label', `數字 ${d}${MARK_LABEL[mark] ?? ''}`);

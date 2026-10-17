@@ -34,7 +34,7 @@
 
     <main class="board">
       <ol id="history" class="history" aria-label="猜測紀錄"></ol>
-      <p id="empty-hint" class="empty-hint">輸入不重複的數字，看看有幾 A 幾 B。</p>
+      <p id="empty-hint" class="empty-hint">輸入一組數字，看看有幾 A 幾 B。</p>
     </main>
 
     <section class="status">
@@ -82,7 +82,7 @@
       <button type="button" class="icon close" aria-label="關閉">✕</button>
     </div>
     <div class="help">
-      <p>猜出一組<strong>不重複</strong>的數字（可以 0 開頭）。每猜一次會告訴你：</p>
+      <p>猜出一組數字（可以 0 開頭，<strong>數字可能重複</strong>）。每猜一次會告訴你：</p>
       <ul>
         <li><span class="tag tag-a">A</span> 數字對、位置也對</li>
         <li><span class="tag tag-b">B</span> 數字對，但位置不對</li>
@@ -90,6 +90,10 @@
       <div class="example">
         <p>例：答案是 <b>1234</b>，你猜 <b>1325</b></p>
         <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">2B</span>（1 位置對；3、2 有但位置錯）</p>
+      </div>
+      <div class="example">
+        <p>重複的數字：答案是 <b>1123</b>，你猜 <b>1111</b></p>
+        <p>→ <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>（答案只有兩個 1，所以只算兩次）</p>
       </div>
       <h3>兩種模式</h3>
       <ul>

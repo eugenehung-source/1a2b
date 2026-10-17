@@ -11,12 +11,11 @@
 
 ## 1. 遊戲規則
 
-- 答案由 0–9 組成、數字不重複，允許 0 開頭（例如 `0371`）。
-- 每次猜測回饋 `xAyB`：A＝數字與位置都對；B＝數字對但位置錯。
-- 輸入時即阻擋重複數字（按鍵抖動提示）；輸入已滿時再按數字一律忽略。
+- 答案由 0–9 組成，**數字可以重複**（每一位獨立隨機），允許 0 開頭（例如 `0371`、`1123`）。（2026-10-17 變更：原本規定不重複，使用者要求改為可重複。）
+- 每次猜測回饋 `xAyB`：A＝數字與位置都對；B＝數字對但位置錯。重複數字採 Mastermind 算法：每個數字計入 A+B 的次數，最多為它在答案與猜測中出現次數的較小值（答案 `1123`、猜 `1111` → `2A0B`）。
+- 猜測也可以有重複數字；輸入已滿時再按數字一律忽略。
 - 不合法的猜測不扣次數，直接顯示錯誤訊息：
   - 長度不對
-  - 有重複數字（輸入端已阻擋，`validateGuess` 仍檢查作為最後防線）
   - 與先前猜過的相同
 - 全部都是 A 即獲勝；用完次數則失敗，並公布答案。
 
@@ -161,7 +160,7 @@ https://<帳號>.github.io/1a2b/
 
 | Seam | 要測的行為 |
 |---|---|
-| `game.js`：`validateGuess(guess, length, history)`、`score(secret, guess)`、`randomSecret(length, rng)` | 計分正確（含全 A、0A0B、0 開頭）；三種錯誤原因 `'length' \| 'duplicate' \| 'repeated'`；產生的答案長度正確、數字不重複 |
+| `game.js`：`validateGuess(guess, length, history)`、`score(secret, guess)`、`randomSecret(length, rng)` | 計分正確（含全 A、0A0B、0 開頭、重複數字）；兩種錯誤原因 `'length' \| 'repeated'`；產生的答案長度正確、只含數字、可重複 |
 | `daily.js`：`dailyNumber(date)`、`dailySecret(n)` | 台灣時間 23:59／00:00 換日邊界；上線日＝#1；同題號同答案；答案合法 |
 | `stats.js`：`recordResult(stats, result)` | 勝負與分布累計；連勝延續、輸了歸零、漏一天歸零；練習最佳紀錄；不改動輸入物件 |
 | `share.js`：`shareText(dayNumber, results, maxGuesses, url)` | emoji 排列（A🟢、B🟡、其餘⚪）；失敗顯示 `X/10`；最後一行附網址 |

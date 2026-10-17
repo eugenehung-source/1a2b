@@ -327,7 +327,6 @@ button:focus-visible {
   text-decoration-thickness: 2px;
 }
 
-.key.used { opacity: 0.45; }
 
 .actions {
   display: grid;
