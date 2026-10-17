@@ -13,6 +13,16 @@ describe('score', () => {
     expect(score('012', '021')).toEqual({ a: 1, b: 2 });
     expect(score('01234', '43210')).toEqual({ a: 1, b: 4 });
   });
+
+  it('counts each repeated digit only as often as the answer has it', () => {
+    expect(score('1123', '1111')).toEqual({ a: 2, b: 0 });
+    expect(score('1234', '1111')).toEqual({ a: 1, b: 0 });
+  });
+
+  it('matches repeated digits across positions', () => {
+    expect(score('1122', '2211')).toEqual({ a: 0, b: 4 });
+    expect(score('1123', '3111')).toEqual({ a: 1, b: 2 });
+  });
 });
 
 describe('validateGuess', () => {
@@ -25,8 +35,9 @@ describe('validateGuess', () => {
     expect(validateGuess('12345', 4, [])).toEqual({ ok: false, reason: 'length' });
   });
 
-  it('rejects a guess with a repeated digit', () => {
-    expect(validateGuess('1123', 4, [])).toEqual({ ok: false, reason: 'duplicate' });
+  it('accepts a guess with repeated digits', () => {
+    expect(validateGuess('1123', 4, [])).toEqual({ ok: true });
+    expect(validateGuess('0000', 4, [])).toEqual({ ok: true });
   });
 
   it('rejects a guess already made', () => {
@@ -41,15 +52,14 @@ describe('validateGuess', () => {
 describe('randomSecret', () => {
   const seq = (...xs) => { let i = 0; return () => xs[i++ % xs.length]; };
 
-  it('builds a secret from injected rng', () => {
-    expect(randomSecret(4, seq(0, 0, 0, 0))).toBe('0123');
+  it('picks each digit independently, so digits can repeat', () => {
+    expect(randomSecret(4, seq(0, 0, 0, 0))).toBe('0000');
+    expect(randomSecret(3, seq(0.15, 0.15, 0.95))).toBe('119');
   });
 
-  it('always yields distinct digits of the requested length', () => {
-    for (let i = 0; i < 1000; i++) {
-      const s = randomSecret(5);
-      expect(s).toMatch(/^\d{5}$/);
-      expect(new Set(s).size).toBe(5);
-    }
+  it('yields digit strings of the requested length, some with repeats', () => {
+    const secrets = Array.from({ length: 1000 }, () => randomSecret(5));
+    for (const s of secrets) expect(s).toMatch(/^\d{5}$/);
+    expect(secrets.some((s) => new Set(s).size < 5)).toBe(true);
   });
 });

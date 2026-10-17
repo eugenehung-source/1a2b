@@ -1,25 +1,32 @@
+// Mastermind-style scoring: a digit counts toward A+B at most as many times
+// as it appears in both the secret and the guess.
 export function score(secret, guess) {
   let a = 0;
-  let b = 0;
+  const left = {};
   for (let i = 0; i < guess.length; i++) {
     if (guess[i] === secret[i]) a++;
-    else if (secret.includes(guess[i])) b++;
+    left[secret[i]] = (left[secret[i]] ?? 0) + 1;
   }
-  return { a, b };
+  let common = 0;
+  for (const d of guess) {
+    if (left[d] > 0) {
+      left[d]--;
+      common++;
+    }
+  }
+  return { a, b: common - a };
 }
 
 export function validateGuess(guess, length, history) {
   if (guess.length !== length) return { ok: false, reason: 'length' };
-  if (new Set(guess).size !== guess.length) return { ok: false, reason: 'duplicate' };
   if (history.includes(guess)) return { ok: false, reason: 'repeated' };
   return { ok: true };
 }
 
 export function randomSecret(length, rng = Math.random) {
-  const pool = [...'0123456789'];
   let secret = '';
   for (let i = 0; i < length; i++) {
-    secret += pool.splice(Math.floor(rng() * pool.length), 1)[0];
+    secret += Math.floor(rng() * 10);
   }
   return secret;
 }
