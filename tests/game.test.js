@@ -52,13 +52,25 @@ describe('validateGuess', () => {
 describe('randomSecret', () => {
   const seq = (...xs) => { let i = 0; return () => xs[i++ % xs.length]; };
 
-  it('picks each digit independently, so digits can repeat', () => {
-    expect(randomSecret(4, seq(0, 0, 0, 0))).toBe('0000');
-    expect(randomSecret(3, seq(0.15, 0.15, 0.95))).toBe('119');
+  it('by default draws distinct digits (classic rules)', () => {
+    expect(randomSecret(4, seq(0, 0, 0, 0))).toBe('0123');
   });
 
-  it('yields digit strings of the requested length, some with repeats', () => {
-    const secrets = Array.from({ length: 1000 }, () => randomSecret(5));
+  it('by default never repeats a digit', () => {
+    for (let i = 0; i < 1000; i++) {
+      const s = randomSecret(5);
+      expect(s).toMatch(/^\d{5}$/);
+      expect(new Set(s).size).toBe(5);
+    }
+  });
+
+  it('with repeats allowed, picks each digit independently', () => {
+    expect(randomSecret(4, seq(0, 0, 0, 0), true)).toBe('0000');
+    expect(randomSecret(3, seq(0.15, 0.15, 0.95), true)).toBe('119');
+  });
+
+  it('with repeats allowed, yields some secrets with repeated digits', () => {
+    const secrets = Array.from({ length: 1000 }, () => randomSecret(5, Math.random, true));
     for (const s of secrets) expect(s).toMatch(/^\d{5}$/);
     expect(secrets.some((s) => new Set(s).size < 5)).toBe(true);
   });

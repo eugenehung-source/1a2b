@@ -23,10 +23,14 @@ export function validateGuess(guess, length, history) {
   return { ok: true };
 }
 
-export function randomSecret(length, rng = Math.random) {
+// Classic rules draw distinct digits; with `repeats` each digit is drawn
+// independently, so the same digit may appear more than once.
+export function randomSecret(length, rng = Math.random, repeats = false) {
+  const pool = [...'0123456789'];
   let secret = '';
   for (let i = 0; i < length; i++) {
-    secret += Math.floor(rng() * 10);
+    const pick = Math.floor(rng() * pool.length);
+    secret += repeats ? pool[pick] : pool.splice(pick, 1)[0];
   }
   return secret;
 }
