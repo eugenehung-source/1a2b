@@ -139,10 +139,12 @@ button:focus-visible {
   font-size: 0.95rem;
 }
 
-.difficulty { display: flex; align-items: center; gap: 6px; }
+.difficulty { display: flex; align-items: center; gap: 4px; }
+
+.difficulty button { white-space: nowrap; flex-shrink: 0; }
 
 .difficulty [data-difficulty] {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 0.9rem;
@@ -150,6 +152,47 @@ button:focus-visible {
 }
 
 .difficulty [aria-pressed="true"] {
+  border-color: var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.repeat-toggle {
+  padding: 4px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.repeat-toggle::before { content: "○ "; }
+
+.repeat-toggle[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--b);
+  color: var(--b);
+  background: var(--b-soft);
+  font-weight: 600;
+}
+
+.repeat-toggle[aria-pressed="true"]::before { content: "● "; }
+
+.variant {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: -6px 0 12px;
+}
+
+.variant button {
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.variant [aria-pressed="true"] {
   border-color: var(--text);
   color: var(--text);
   font-weight: 600;
@@ -575,6 +618,7 @@ kbd {
         <button type="button" data-difficulty="easy" aria-pressed="false">簡單</button>
         <button type="button" data-difficulty="normal" aria-pressed="false">普通</button>
         <button type="button" data-difficulty="hard" aria-pressed="false">困難</button>
+        <button type="button" id="repeat-toggle" class="repeat-toggle" aria-pressed="false" title="答案可能有重複數字">可重複</button>
         <button type="button" id="new-game" class="link">新的一局</button>
       </div>
     </div>
@@ -617,6 +661,10 @@ kbd {
       <button type="button" role="tab" data-tab="normal">普通</button>
       <button type="button" role="tab" data-tab="hard">困難</button>
     </div>
+    <div id="stats-variant" class="variant" role="group" aria-label="答案規則" hidden>
+      <button type="button" data-repeats="false" aria-pressed="true">不重複</button>
+      <button type="button" data-repeats="true" aria-pressed="false">可重複</button>
+    </div>
     <div id="stat-cards" class="cards"></div>
     <h3 class="dist-title">猜測次數分布</h3>
     <div id="dist" class="dist"></div>
@@ -629,7 +677,7 @@ kbd {
       <button type="button" class="icon close" aria-label="關閉">✕</button>
     </div>
     <div class="help">
-      <p>猜出一組數字（可以 0 開頭，<strong>數字可能重複</strong>）。每猜一次會告訴你：</p>
+      <p>猜出一組數字（可以 0 開頭）。每猜一次會告訴你：</p>
       <ul>
         <li><span class="tag tag-a">A</span> 數字對、位置也對</li>
         <li><span class="tag tag-b">B</span> 數字對，但位置不對</li>
@@ -639,13 +687,13 @@ kbd {
         <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">2B</span>（1 位置對；3、2 有但位置錯）</p>
       </div>
       <div class="example">
-        <p>重複的數字：答案是 <b>1123</b>，你猜 <b>1111</b></p>
-        <p>→ <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>（答案只有兩個 1，所以只算兩次）</p>
+        <p>猜的時候可以重複數字來試探：答案是 <b>1234</b>，你猜 <b>1111</b></p>
+        <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">0B</span>（答案裡只有一個 1，所以只算一次）</p>
       </div>
       <h3>兩種模式</h3>
       <ul>
-        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，所有人同一題，猜完可以分享戰績。</li>
-        <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。</li>
+        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，答案數字<strong>不重複</strong>，所有人同一題，猜完可以分享戰績。</li>
+        <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。打開「可重複」，答案就可能有重複數字（例：答案 <b>1123</b>、猜 <b>1111</b> → <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>），比較難。</li>
       </ul>
       <h3>筆記標記</h3>
       <p>開啟「✏️ 標記」後點數字，可以標成 <span class="mark-demo present">一定有</span> → <span class="mark-demo absent">一定沒有</span> → 取消。也可以長按數字、按右鍵，或按 <kbd>Shift</kbd> + 數字。</p>
@@ -684,10 +732,14 @@ function validateGuess(guess, length, history) {
   return { ok: true };
 }
 
-function randomSecret(length, rng = Math.random) {
+// Classic rules draw distinct digits; with `repeats` each digit is drawn
+// independently, so the same digit may appear more than once.
+function randomSecret(length, rng = Math.random, repeats = false) {
+  const pool = [...'0123456789'];
   let secret = '';
   for (let i = 0; i < length; i++) {
-    secret += Math.floor(rng() * 10);
+    const pick = Math.floor(rng() * pool.length);
+    secret += repeats ? pool[pick] : pool.splice(pick, 1)[0];
   }
   return secret;
 }
@@ -819,6 +871,7 @@ function save(key, value) {
 const KEYS = {
   stats: '1a2b:v1:stats',
   difficulty: '1a2b:v1:difficulty',
+  repeats: '1a2b:v1:repeats',
   daily: '1a2b:v1:daily',
   seenHelp: '1a2b:v1:seenHelp',
 };
@@ -838,6 +891,8 @@ const $ = (id) => document.getElementById(id);
 
 let difficulty = load(KEYS.difficulty, 'normal');
 if (!DIFFICULTIES[difficulty]) difficulty = 'normal';
+// practice variant: answers may repeat digits (the daily puzzle never does)
+let repeats = load(KEYS.repeats, false) === true;
 
 // Initialised at the bottom of the file, once every helper is defined.
 let stats;
@@ -854,9 +909,16 @@ function validStats(s, maxGuesses) {
   );
 }
 
+// Practice stats are kept per difficulty and variant: "normal", "normal-repeat", …
+const statsKey = (diff, rep) => (rep ? `${diff}-repeat` : diff);
+
 function loadStats() {
   const raw = load(KEYS.stats, {});
-  const limits = { daily: DAILY_MAX, ...Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, v]) => [k, v.maxGuesses])) };
+  const limits = { daily: DAILY_MAX };
+  for (const [diff, { maxGuesses }] of Object.entries(DIFFICULTIES)) {
+    limits[statsKey(diff, false)] = maxGuesses;
+    limits[statsKey(diff, true)] = maxGuesses;
+  }
   const out = {};
   for (const [kind, maxGuesses] of Object.entries(limits)) {
     out[kind] = validStats(raw[kind], maxGuesses) ? raw[kind] : emptyStats(maxGuesses);
@@ -870,9 +932,12 @@ function blankGame(fields) {
   return { guesses: [], results: [], marks: freshMarks(), input: '', over: false, won: false, ...fields };
 }
 
-function newPractice(diff) {
+function newPractice(diff, rep) {
   const { length, maxGuesses } = DIFFICULTIES[diff];
-  return blankGame({ kind: 'practice', difficulty: diff, length, maxGuesses, secret: randomSecret(length) });
+  return blankGame({
+    kind: 'practice', difficulty: diff, repeats: rep, length, maxGuesses,
+    secret: randomSecret(length, Math.random, rep),
+  });
 }
 
 // A saved daily game from another day is dropped unrecorded: the streak
@@ -935,7 +1000,8 @@ function recordFinish(g) {
     g.recorded = true;
     saveDaily(g);
   } else {
-    stats[g.difficulty] = recordResult(stats[g.difficulty], result);
+    const key = statsKey(g.difficulty, g.repeats);
+    stats[key] = recordResult(stats[key], result);
   }
   save(KEYS.stats, stats);
 }
@@ -1004,14 +1070,23 @@ function chooseDifficulty(diff) {
   if (inProgress(game) && !confirm('放棄目前這局？')) return;
   difficulty = diff;
   save(KEYS.difficulty, difficulty);
-  game = games.practice = newPractice(difficulty);
+  game = games.practice = newPractice(difficulty, repeats);
   setMessage('');
+  render();
+}
+
+function toggleRepeats() {
+  if (inProgress(game) && !confirm('放棄目前這局？')) return;
+  repeats = !repeats;
+  save(KEYS.repeats, repeats);
+  game = games.practice = newPractice(difficulty, repeats);
+  setMessage(repeats ? '答案可能有重複數字' : '答案的數字不會重複');
   render();
 }
 
 function newGame() {
   if (inProgress(game) && !confirm('放棄目前這局？')) return;
-  game = games.practice = newPractice(game.difficulty);
+  game = games.practice = newPractice(game.difficulty, game.repeats);
   setMessage('');
   render();
 }
@@ -1215,6 +1290,7 @@ function renderBars() {
   for (const b of document.querySelectorAll('[data-difficulty]')) {
     b.setAttribute('aria-pressed', String(b.dataset.difficulty === game.difficulty));
   }
+  $('repeat-toggle').setAttribute('aria-pressed', String(game.kind === 'practice' && game.repeats));
 }
 
 function render() {
@@ -1228,9 +1304,11 @@ function render() {
 // ---------- dialogs ----------
 
 let statsTab = 'daily';
+let statsRepeats = false; // which variant the practice tabs show
 
 function openStats(tab = game.kind === 'daily' ? 'daily' : game.difficulty) {
   statsTab = tab;
+  statsRepeats = games.practice.repeats;
   renderStats();
   const dialog = $('stats-dialog');
   if (!dialog.open) dialog.showModal();
@@ -1241,9 +1319,14 @@ function card(value, label) {
 }
 
 function renderStats() {
-  const s = stats[statsTab];
+  const isDaily = statsTab === 'daily';
+  const s = stats[isDaily ? 'daily' : statsKey(statsTab, statsRepeats)];
   for (const t of document.querySelectorAll('#stats-tabs [role="tab"]')) {
     t.setAttribute('aria-selected', String(t.dataset.tab === statsTab));
+  }
+  $('stats-variant').hidden = isDaily;
+  for (const b of document.querySelectorAll('#stats-variant [data-repeats]')) {
+    b.setAttribute('aria-pressed', String((b.dataset.repeats === 'true') === statsRepeats));
   }
   const winRate = s.played ? Math.round((s.wins / s.played) * 100) : 0;
   const cards = [card(s.played, '遊玩次數'), card(winRate, '勝率 %')];
@@ -1255,7 +1338,8 @@ function renderStats() {
   $('stat-cards').innerHTML = cards.join('');
 
   // highlight the bar of the game that just finished, if it belongs to this tab
-  const shown = statsTab === 'daily' ? games.daily : games.practice.difficulty === statsTab ? games.practice : null;
+  const p = games.practice;
+  const shown = isDaily ? games.daily : p.difficulty === statsTab && p.repeats === statsRepeats ? p : null;
   const current = shown?.over ? (shown.won ? shown.guesses.length - 1 : s.dist.length - 1) : -1;
   const peak = Math.max(1, ...s.dist);
   $('dist').innerHTML = s.dist
@@ -1368,6 +1452,10 @@ function wireDialogs() {
     const t = e.target.closest('[data-tab]');
     if (t) { statsTab = t.dataset.tab; renderStats(); }
   });
+  $('stats-variant').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-repeats]');
+    if (b) { statsRepeats = b.dataset.repeats === 'true'; renderStats(); }
+  });
 }
 
 function wire() {
@@ -1385,13 +1473,14 @@ function wire() {
     if (b) chooseDifficulty(b.dataset.difficulty);
   });
   $('new-game').addEventListener('click', newGame);
+  $('repeat-toggle').addEventListener('click', toggleRepeats);
   document.addEventListener('keydown', onKeyDown);
   setInterval(tick, 1000);
 }
 
 stats = loadStats();
 games.daily = loadDaily(dailyNumber(new Date()));
-games.practice = newPractice(difficulty);
+games.practice = newPractice(difficulty, repeats);
 game = games.daily;
 
 wire();

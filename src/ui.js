@@ -7,6 +7,7 @@ import { load, save } from './storage.js';
 const KEYS = {
   stats: '1a2b:v1:stats',
   difficulty: '1a2b:v1:difficulty',
+  repeats: '1a2b:v1:repeats',
   daily: '1a2b:v1:daily',
   seenHelp: '1a2b:v1:seenHelp',
 };
@@ -26,6 +27,8 @@ const $ = (id) => document.getElementById(id);
 
 let difficulty = load(KEYS.difficulty, 'normal');
 if (!DIFFICULTIES[difficulty]) difficulty = 'normal';
+// practice variant: answers may repeat digits (the daily puzzle never does)
+let repeats = load(KEYS.repeats, false) === true;
 
 // Initialised at the bottom of the file, once every helper is defined.
 let stats;
@@ -42,9 +45,16 @@ function validStats(s, maxGuesses) {
   );
 }
 
+// Practice stats are kept per difficulty and variant: "normal", "normal-repeat", …
+const statsKey = (diff, rep) => (rep ? `${diff}-repeat` : diff);
+
 function loadStats() {
   const raw = load(KEYS.stats, {});
-  const limits = { daily: DAILY_MAX, ...Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, v]) => [k, v.maxGuesses])) };
+  const limits = { daily: DAILY_MAX };
+  for (const [diff, { maxGuesses }] of Object.entries(DIFFICULTIES)) {
+    limits[statsKey(diff, false)] = maxGuesses;
+    limits[statsKey(diff, true)] = maxGuesses;
+  }
   const out = {};
   for (const [kind, maxGuesses] of Object.entries(limits)) {
     out[kind] = validStats(raw[kind], maxGuesses) ? raw[kind] : emptyStats(maxGuesses);
@@ -58,9 +68,12 @@ function blankGame(fields) {
   return { guesses: [], results: [], marks: freshMarks(), input: '', over: false, won: false, ...fields };
 }
 
-function newPractice(diff) {
+function newPractice(diff, rep) {
   const { length, maxGuesses } = DIFFICULTIES[diff];
-  return blankGame({ kind: 'practice', difficulty: diff, length, maxGuesses, secret: randomSecret(length) });
+  return blankGame({
+    kind: 'practice', difficulty: diff, repeats: rep, length, maxGuesses,
+    secret: randomSecret(length, Math.random, rep),
+  });
 }
 
 // A saved daily game from another day is dropped unrecorded: the streak
@@ -123,7 +136,8 @@ function recordFinish(g) {
     g.recorded = true;
     saveDaily(g);
   } else {
-    stats[g.difficulty] = recordResult(stats[g.difficulty], result);
+    const key = statsKey(g.difficulty, g.repeats);
+    stats[key] = recordResult(stats[key], result);
   }
   save(KEYS.stats, stats);
 }
@@ -192,14 +206,23 @@ function chooseDifficulty(diff) {
   if (inProgress(game) && !confirm('放棄目前這局？')) return;
   difficulty = diff;
   save(KEYS.difficulty, difficulty);
-  game = games.practice = newPractice(difficulty);
+  game = games.practice = newPractice(difficulty, repeats);
   setMessage('');
+  render();
+}
+
+function toggleRepeats() {
+  if (inProgress(game) && !confirm('放棄目前這局？')) return;
+  repeats = !repeats;
+  save(KEYS.repeats, repeats);
+  game = games.practice = newPractice(difficulty, repeats);
+  setMessage(repeats ? '答案可能有重複數字' : '答案的數字不會重複');
   render();
 }
 
 function newGame() {
   if (inProgress(game) && !confirm('放棄目前這局？')) return;
-  game = games.practice = newPractice(game.difficulty);
+  game = games.practice = newPractice(game.difficulty, game.repeats);
   setMessage('');
   render();
 }
@@ -403,6 +426,7 @@ function renderBars() {
   for (const b of document.querySelectorAll('[data-difficulty]')) {
     b.setAttribute('aria-pressed', String(b.dataset.difficulty === game.difficulty));
   }
+  $('repeat-toggle').setAttribute('aria-pressed', String(game.kind === 'practice' && game.repeats));
 }
 
 function render() {
@@ -416,9 +440,11 @@ function render() {
 // ---------- dialogs ----------
 
 let statsTab = 'daily';
+let statsRepeats = false; // which variant the practice tabs show
 
 function openStats(tab = game.kind === 'daily' ? 'daily' : game.difficulty) {
   statsTab = tab;
+  statsRepeats = games.practice.repeats;
   renderStats();
   const dialog = $('stats-dialog');
   if (!dialog.open) dialog.showModal();
@@ -429,9 +455,14 @@ function card(value, label) {
 }
 
 function renderStats() {
-  const s = stats[statsTab];
+  const isDaily = statsTab === 'daily';
+  const s = stats[isDaily ? 'daily' : statsKey(statsTab, statsRepeats)];
   for (const t of document.querySelectorAll('#stats-tabs [role="tab"]')) {
     t.setAttribute('aria-selected', String(t.dataset.tab === statsTab));
+  }
+  $('stats-variant').hidden = isDaily;
+  for (const b of document.querySelectorAll('#stats-variant [data-repeats]')) {
+    b.setAttribute('aria-pressed', String((b.dataset.repeats === 'true') === statsRepeats));
   }
   const winRate = s.played ? Math.round((s.wins / s.played) * 100) : 0;
   const cards = [card(s.played, '遊玩次數'), card(winRate, '勝率 %')];
@@ -443,7 +474,8 @@ function renderStats() {
   $('stat-cards').innerHTML = cards.join('');
 
   // highlight the bar of the game that just finished, if it belongs to this tab
-  const shown = statsTab === 'daily' ? games.daily : games.practice.difficulty === statsTab ? games.practice : null;
+  const p = games.practice;
+  const shown = isDaily ? games.daily : p.difficulty === statsTab && p.repeats === statsRepeats ? p : null;
   const current = shown?.over ? (shown.won ? shown.guesses.length - 1 : s.dist.length - 1) : -1;
   const peak = Math.max(1, ...s.dist);
   $('dist').innerHTML = s.dist
@@ -556,6 +588,10 @@ function wireDialogs() {
     const t = e.target.closest('[data-tab]');
     if (t) { statsTab = t.dataset.tab; renderStats(); }
   });
+  $('stats-variant').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-repeats]');
+    if (b) { statsRepeats = b.dataset.repeats === 'true'; renderStats(); }
+  });
 }
 
 function wire() {
@@ -573,13 +609,14 @@ function wire() {
     if (b) chooseDifficulty(b.dataset.difficulty);
   });
   $('new-game').addEventListener('click', newGame);
+  $('repeat-toggle').addEventListener('click', toggleRepeats);
   document.addEventListener('keydown', onKeyDown);
   setInterval(tick, 1000);
 }
 
 stats = loadStats();
 games.daily = loadDaily(dailyNumber(new Date()));
-games.practice = newPractice(difficulty);
+games.practice = newPractice(difficulty, repeats);
 game = games.daily;
 
 wire();

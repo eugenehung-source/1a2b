@@ -130,10 +130,12 @@ button:focus-visible {
   font-size: 0.95rem;
 }
 
-.difficulty { display: flex; align-items: center; gap: 6px; }
+.difficulty { display: flex; align-items: center; gap: 4px; }
+
+.difficulty button { white-space: nowrap; flex-shrink: 0; }
 
 .difficulty [data-difficulty] {
-  padding: 4px 12px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 0.9rem;
@@ -141,6 +143,47 @@ button:focus-visible {
 }
 
 .difficulty [aria-pressed="true"] {
+  border-color: var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.repeat-toggle {
+  padding: 4px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.repeat-toggle::before { content: "○ "; }
+
+.repeat-toggle[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--b);
+  color: var(--b);
+  background: var(--b-soft);
+  font-weight: 600;
+}
+
+.repeat-toggle[aria-pressed="true"]::before { content: "● "; }
+
+.variant {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: -6px 0 12px;
+}
+
+.variant button {
+  padding: 3px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.variant [aria-pressed="true"] {
   border-color: var(--text);
   color: var(--text);
   font-weight: 600;

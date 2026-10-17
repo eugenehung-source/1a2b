@@ -28,6 +28,7 @@
         <button type="button" data-difficulty="easy" aria-pressed="false">簡單</button>
         <button type="button" data-difficulty="normal" aria-pressed="false">普通</button>
         <button type="button" data-difficulty="hard" aria-pressed="false">困難</button>
+        <button type="button" id="repeat-toggle" class="repeat-toggle" aria-pressed="false" title="答案可能有重複數字">可重複</button>
         <button type="button" id="new-game" class="link">新的一局</button>
       </div>
     </div>
@@ -70,6 +71,10 @@
       <button type="button" role="tab" data-tab="normal">普通</button>
       <button type="button" role="tab" data-tab="hard">困難</button>
     </div>
+    <div id="stats-variant" class="variant" role="group" aria-label="答案規則" hidden>
+      <button type="button" data-repeats="false" aria-pressed="true">不重複</button>
+      <button type="button" data-repeats="true" aria-pressed="false">可重複</button>
+    </div>
     <div id="stat-cards" class="cards"></div>
     <h3 class="dist-title">猜測次數分布</h3>
     <div id="dist" class="dist"></div>
@@ -82,7 +87,7 @@
       <button type="button" class="icon close" aria-label="關閉">✕</button>
     </div>
     <div class="help">
-      <p>猜出一組數字（可以 0 開頭，<strong>數字可能重複</strong>）。每猜一次會告訴你：</p>
+      <p>猜出一組數字（可以 0 開頭）。每猜一次會告訴你：</p>
       <ul>
         <li><span class="tag tag-a">A</span> 數字對、位置也對</li>
         <li><span class="tag tag-b">B</span> 數字對，但位置不對</li>
@@ -92,13 +97,13 @@
         <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">2B</span>（1 位置對；3、2 有但位置錯）</p>
       </div>
       <div class="example">
-        <p>重複的數字：答案是 <b>1123</b>，你猜 <b>1111</b></p>
-        <p>→ <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>（答案只有兩個 1，所以只算兩次）</p>
+        <p>猜的時候可以重複數字來試探：答案是 <b>1234</b>，你猜 <b>1111</b></p>
+        <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">0B</span>（答案裡只有一個 1，所以只算一次）</p>
       </div>
       <h3>兩種模式</h3>
       <ul>
-        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，所有人同一題，猜完可以分享戰績。</li>
-        <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。</li>
+        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，答案數字<strong>不重複</strong>，所有人同一題，猜完可以分享戰績。</li>
+        <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。打開「可重複」，答案就可能有重複數字（例：答案 <b>1123</b>、猜 <b>1111</b> → <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>），比較難。</li>
       </ul>
       <h3>筆記標記</h3>
       <p>開啟「✏️ 標記」後點數字，可以標成 <span class="mark-demo present">一定有</span> → <span class="mark-demo absent">一定沒有</span> → 取消。也可以長按數字、按右鍵，或按 <kbd>Shift</kbd> + 數字。</p>
