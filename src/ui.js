@@ -3,6 +3,7 @@ import { dailyNumber, dailySecret, msUntilNextDay, DAILY_LENGTH, DAILY_MAX } fro
 import { emptyStats, recordResult, displayStreak } from './stats.js';
 import { shareText } from './share.js';
 import { totalCandidates, remainingCounts } from './analysis.js';
+import { formatDuration } from './time.js';
 import { load, save } from './storage.js';
 
 const KEYS = {
@@ -66,7 +67,11 @@ function loadStats() {
 const freshMarks = () => Array(10).fill('unknown');
 
 function blankGame(fields) {
-  return { guesses: [], results: [], marks: freshMarks(), input: '', over: false, won: false, ...fields };
+  return {
+    guesses: [], results: [], marks: freshMarks(), input: '', over: false, won: false,
+    elapsed: 0, runningSince: null, // play time in ms; the clock runs only while visible
+    ...fields,
+  };
 }
 
 function newPractice(diff, rep) {
@@ -90,6 +95,7 @@ function loadDaily(day) {
     applyGuess(g, guess);
   }
   if (Array.isArray(saved.marks) && saved.marks.length === 10) g.marks = saved.marks;
+  if (Number.isFinite(saved.elapsed) && saved.elapsed > 0) g.elapsed = saved.elapsed;
   g.recorded = saved.recorded === true;
   if (g.over && !g.recorded) recordFinish(g);
   return g;
@@ -103,10 +109,35 @@ function dailyRecordedElsewhere(g) {
 function saveDaily(g) {
   // never clear a "recorded" flag another tab already wrote for this day
   const recorded = g.recorded || dailyRecordedElsewhere(g);
-  save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, recorded });
+  save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, elapsed: elapsedOf(g), recorded });
+}
+
+// Saves whatever kind of game this is (practice games are not saved).
+function persist(g) {
+  if (g.kind === 'daily') saveDaily(g);
 }
 
 const inProgress = (g) => g.guesses.length > 0 && !g.over;
+
+// ---------- play clock ----------
+
+const elapsedOf = (g) => g.elapsed + (g.runningSince === null ? 0 : Date.now() - g.runningSince);
+const clockStarted = (g) => g.elapsed > 0 || g.runningSince !== null || g.guesses.length > 0;
+
+function startClock(g) {
+  if (!g.over && g.runningSince === null && !document.hidden) g.runningSince = Date.now();
+}
+
+function pauseClock(g) {
+  if (g.runningSince === null) return;
+  g.elapsed = elapsedOf(g);
+  g.runningSince = null;
+}
+
+// only the game on screen runs its clock
+function resumeClockIfStarted(g) {
+  if (clockStarted(g)) startClock(g);
+}
 
 // ---------- game rules applied to state ----------
 
@@ -127,7 +158,7 @@ function recordFinish(g) {
   // Another tab may have saved newer stats since this page loaded: build on
   // what is stored, not on this tab's copy, or that tab's result is lost.
   stats = loadStats();
-  const result = { won: g.won, guesses: g.guesses.length };
+  const result = { won: g.won, guesses: g.guesses.length, timeMs: g.elapsed > 0 ? g.elapsed : undefined };
   if (g.kind === 'daily') {
     if (g.recorded || dailyRecordedElsewhere(g)) {
       g.recorded = true;
@@ -148,6 +179,7 @@ function recordFinish(g) {
 function typeDigit(d) {
   if (game.over) return;
   if (game.input.length >= game.length) return;
+  startClock(game);
   game.input += d;
   setMessage('');
   render();
@@ -157,7 +189,7 @@ function toggleMark(d) {
   if (game.over) return;
   const i = Number(d);
   game.marks[i] = MARK_CYCLE[game.marks[i]] ?? 'present';
-  if (game.kind === 'daily') saveDaily(game);
+  persist(game);
   renderPad();
 }
 
@@ -182,8 +214,11 @@ function submit() {
   }
   const result = applyGuess(game, game.input);
   game.input = '';
-  if (game.over) game.finishedDay = dailyNumber(new Date());
-  if (game.kind === 'daily') saveDaily(game);
+  if (game.over) {
+    pauseClock(game);
+    game.finishedDay = dailyNumber(new Date());
+  }
+  persist(game);
   if (game.over) recordFinish(game);
   celebrateNext = game.won;
   const answer = game.over && !game.won ? `，答案是 ${game.secret}` : '';
@@ -197,9 +232,17 @@ function submit() {
 
 function setMode(mode) {
   if (game === games[mode]) return;
-  game = games[mode];
+  showGame(games[mode]);
   setMessage('');
   render();
+}
+
+// Switch the game on screen; only that game's clock runs.
+function showGame(g) {
+  pauseClock(game);
+  persist(game);
+  game = g;
+  resumeClockIfStarted(game);
 }
 
 function chooseDifficulty(diff) {
@@ -232,7 +275,7 @@ function share(e) {
   const button = e?.currentTarget;
   const g = games.daily;
   const url = location.origin + location.pathname;
-  const text = shareText(g.day, g.results, g.maxGuesses, url);
+  const text = shareText(g.day, g.results, g.maxGuesses, url, g.elapsed > 0 ? g.elapsed : undefined);
   const fallback = () => showShareFallback(text);
   if (!navigator.clipboard?.writeText) return fallback();
   navigator.clipboard.writeText(text).then(() => {
@@ -289,6 +332,11 @@ function tick() {
   }
   const el = $('countdown');
   if (el) el.textContent = formatCountdown(msUntilNextDay(new Date()));
+  renderTimer();
+}
+
+function renderTimer() {
+  $('timer').textContent = `⏱${formatDuration(elapsedOf(game))}`;
 }
 
 function formatCountdown(ms) {
@@ -383,6 +431,7 @@ function renderEntry() {
     slots.append(s);
   }
   $('count').textContent = `${game.guesses.length}/${game.maxGuesses}`;
+  renderTimer();
   $('entry').hidden = game.over;
 }
 
@@ -400,9 +449,10 @@ function renderBanner() {
   banner.hidden = !game.over;
   $('share-fallback')?.remove();
   if (!game.over) return;
-  $('banner-text').textContent = game.won
+  const time = game.elapsed > 0 ? `　⏱${formatDuration(game.elapsed)}` : '';
+  $('banner-text').textContent = (game.won
     ? `🎉 第 ${game.guesses.length} 次猜中！`
-    : `答案是 ${game.secret}`;
+    : `答案是 ${game.secret}`) + time;
   const actions = $('banner-actions');
   actions.replaceChildren();
   if (game.kind === 'daily') {
@@ -493,6 +543,7 @@ function renderStats() {
   } else {
     cards.push(card(s.best ?? '–', '最佳次數'));
   }
+  cards.push(card(Number.isFinite(s.bestTime) ? formatDuration(s.bestTime) : '–', '最快'));
   $('stat-cards').innerHTML = cards.join('');
 
   // highlight the bar of the game that just finished, if it belongs to this tab
@@ -634,12 +685,23 @@ function wire() {
   $('repeat-toggle').addEventListener('click', toggleRepeats);
   document.addEventListener('keydown', onKeyDown);
   setInterval(tick, 1000);
+  // the clock pauses while the player is away; progress is saved on the way out
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      pauseClock(game);
+      persist(game);
+    } else if (!game.over) {
+      resumeClockIfStarted(game);
+    }
+    renderTimer();
+  });
 }
 
 stats = loadStats();
 games.daily = loadDaily(dailyNumber(new Date()));
 games.practice = newPractice(difficulty, repeats);
 game = games.daily;
+resumeClockIfStarted(game);
 
 wire();
 render();

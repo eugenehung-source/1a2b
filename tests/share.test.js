@@ -22,3 +22,15 @@ describe('shareText', () => {
     expect(lines[1]).toBe('⚪⚪⚪⚪');
   });
 });
+
+describe('shareText with a time', () => {
+  it('adds the solve time to the header', () => {
+    const lines = shareText(12, [{ a: 4, b: 0 }], 10, 'https://x.github.io/1a2b/', 83000).split('\n');
+    expect(lines[0]).toBe('1A2B 每日 #12  1/10  ⏱1:23');
+  });
+
+  it('leaves the header unchanged without a time', () => {
+    const lines = shareText(12, [{ a: 4, b: 0 }], 10, 'https://x.github.io/1a2b/').split('\n');
+    expect(lines[0]).toBe('1A2B 每日 #12  1/10');
+  });
+});

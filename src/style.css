@@ -292,6 +292,10 @@ button:focus-visible {
 
 .count { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.5em; }
 
+.meta { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+
+.timer { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 .message {
   min-height: 1.4em;
   margin: 8px 0 0;
@@ -474,7 +478,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
   gap: 8px;
 }
 

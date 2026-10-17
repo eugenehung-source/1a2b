@@ -84,3 +84,27 @@ describe('displayStreak', () => {
     expect(displayStreak(s, 6)).toBe(0);
   });
 });
+
+describe('fastest win', () => {
+  it('keeps the shortest time among wins', () => {
+    let s = emptyStats(10);
+    s = recordResult(s, { won: true, guesses: 5, timeMs: 90000 });
+    s = recordResult(s, { won: true, guesses: 6, timeMs: 60000 });
+    s = recordResult(s, { won: true, guesses: 4, timeMs: 75000 });
+    expect(s.bestTime).toBe(60000);
+  });
+
+  it('ignores losses and games without a time', () => {
+    let s = emptyStats(10);
+    s = recordResult(s, { won: false, guesses: 10, timeMs: 10000 });
+    expect(s.bestTime).toBe(null);
+    s = recordResult(s, { won: true, guesses: 5 });
+    expect(s.bestTime).toBe(null);
+  });
+
+  it('works with stats saved before times were tracked', () => {
+    const { bestTime, ...old } = emptyStats(10);
+    const s = recordResult(old, { won: true, guesses: 5, timeMs: 42000 });
+    expect(s.bestTime).toBe(42000);
+  });
+});

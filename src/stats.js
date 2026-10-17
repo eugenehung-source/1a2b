@@ -6,18 +6,21 @@ export function emptyStats(maxGuesses) {
     maxStreak: 0,
     lastWinDay: null,
     best: null,
+    bestTime: null,
     dist: Array(maxGuesses + 1).fill(0),
   };
 }
 
-export function recordResult(stats, { won, guesses, dayNumber }) {
+export function recordResult(stats, { won, guesses, dayNumber, timeMs }) {
   const dist = [...stats.dist];
   dist[won ? guesses - 1 : dist.length - 1]++;
+  const prevTime = stats.bestTime ?? null; // absent in stats saved before timing existed
   const next = {
     ...stats,
     played: stats.played + 1,
     wins: stats.wins + (won ? 1 : 0),
     best: won && (stats.best === null || guesses < stats.best) ? guesses : stats.best,
+    bestTime: won && typeof timeMs === 'number' && (prevTime === null || timeMs < prevTime) ? timeMs : prevTime,
     dist,
   };
   if (dayNumber !== undefined && won) {
