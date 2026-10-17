@@ -2,6 +2,7 @@ import { DIFFICULTIES, score, validateGuess, randomSecret } from './game.js';
 import { dailyNumber, dailySecret, msUntilNextDay, DAILY_LENGTH, DAILY_MAX } from './daily.js';
 import { emptyStats, recordResult, displayStreak } from './stats.js';
 import { shareText } from './share.js';
+import { totalCandidates, remainingCounts } from './analysis.js';
 import { load, save } from './storage.js';
 
 const KEYS = {
@@ -347,8 +348,29 @@ function renderHistory() {
     list.append(li);
   }
   celebrateNext = false;
+  renderAnalysis(list);
   $('empty-hint').hidden = game.guesses.length > 0;
   if (list.children.length > rendered) list.lastElementChild.scrollIntoView({ block: 'nearest' });
+}
+
+// After the game only (no spoilers): how many answers each guess left open.
+function renderAnalysis(list) {
+  const note = $('analysis-note');
+  note.hidden = !game.over;
+  if (!game.over) return;
+  game.analysis ??= {
+    total: totalCandidates(game.length, !!game.repeats),
+    counts: remainingCounts(game.guesses, game.results, game.length, !!game.repeats),
+  };
+  const { total, counts } = game.analysis;
+  note.textContent = `賽後分析：一開始有 ${total.toLocaleString()} 種可能`;
+  [...list.children].forEach((li, i) => {
+    if (li.querySelector('.row-left')) return;
+    const span = document.createElement('span');
+    span.className = 'row-left';
+    span.textContent = counts[i] === 1 ? '只剩 1 種' : `剩 ${counts[i].toLocaleString()} 種可能`;
+    li.append(span);
+  });
 }
 
 function renderEntry() {

@@ -243,6 +243,21 @@ button:focus-visible {
 
 .row.win { border-color: var(--a); }
 
+.row-left {
+  grid-column: 2 / -1;
+  margin-top: -4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  animation: fade-in 0.3s ease-out;
+}
+
+.analysis-note {
+  margin: 4px 0 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .empty-hint {
   margin: 24px 0;
   text-align: center;

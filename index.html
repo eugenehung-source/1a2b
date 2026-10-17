@@ -252,6 +252,21 @@ button:focus-visible {
 
 .row.win { border-color: var(--a); }
 
+.row-left {
+  grid-column: 2 / -1;
+  margin-top: -4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  animation: fade-in 0.3s ease-out;
+}
+
+.analysis-note {
+  margin: 4px 0 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .empty-hint {
   margin: 24px 0;
   text-align: center;
@@ -624,6 +639,7 @@ kbd {
     </div>
 
     <main class="board">
+      <p id="analysis-note" class="analysis-note" hidden></p>
       <ol id="history" class="history" aria-label="猜測紀錄"></ol>
       <p id="empty-hint" class="empty-hint">輸入一組數字，看看有幾 A 幾 B。</p>
     </main>
@@ -834,6 +850,43 @@ function shareText(dayNumber, results, maxGuesses, url) {
   const won = results.at(-1)?.a === DAILY_LENGTH;
   const header = `1A2B 每日 #${dayNumber}  ${won ? results.length : 'X'}/${maxGuesses}`;
   return [header, ...results.map(row), url].join('\n');
+}
+
+// ---- analysis.js ----
+
+// Post-game analysis: how many answers were still possible after each guess.
+
+// Every answer allowed by the rules: distinct digits, or any digit string.
+function allAnswers(length, repeats) {
+  const out = [];
+  const grow = (prefix) => {
+    if (prefix.length === length) {
+      out.push(prefix);
+      return;
+    }
+    for (const d of '0123456789') {
+      if (repeats || !prefix.includes(d)) grow(prefix + d);
+    }
+  };
+  grow('');
+  return out;
+}
+
+function totalCandidates(length, repeats) {
+  return allAnswers(length, repeats).length;
+}
+
+// counts[i] = answers matching the feedback of guesses 0..i
+function remainingCounts(guesses, results, length, repeats) {
+  let candidates = allAnswers(length, repeats);
+  return guesses.map((guess, i) => {
+    const { a, b } = results[i];
+    candidates = candidates.filter((c) => {
+      const r = score(c, guess);
+      return r.a === a && r.b === b;
+    });
+    return candidates.length;
+  });
 }
 
 // ---- storage.js ----
@@ -1211,8 +1264,29 @@ function renderHistory() {
     list.append(li);
   }
   celebrateNext = false;
+  renderAnalysis(list);
   $('empty-hint').hidden = game.guesses.length > 0;
   if (list.children.length > rendered) list.lastElementChild.scrollIntoView({ block: 'nearest' });
+}
+
+// After the game only (no spoilers): how many answers each guess left open.
+function renderAnalysis(list) {
+  const note = $('analysis-note');
+  note.hidden = !game.over;
+  if (!game.over) return;
+  game.analysis ??= {
+    total: totalCandidates(game.length, !!game.repeats),
+    counts: remainingCounts(game.guesses, game.results, game.length, !!game.repeats),
+  };
+  const { total, counts } = game.analysis;
+  note.textContent = `賽後分析：一開始有 ${total.toLocaleString()} 種可能`;
+  [...list.children].forEach((li, i) => {
+    if (li.querySelector('.row-left')) return;
+    const span = document.createElement('span');
+    span.className = 'row-left';
+    span.textContent = counts[i] === 1 ? '只剩 1 種' : `剩 ${counts[i].toLocaleString()} 種可能`;
+    li.append(span);
+  });
 }
 
 function renderEntry() {
