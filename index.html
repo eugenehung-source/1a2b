@@ -6,7 +6,554 @@
   <meta name="description" content="每天一題的 1A2B 猜數字遊戲，也可以自由練習。">
   <title>1A2B 每日猜數字</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
-  <link rel="stylesheet" href="style.css">
+  <style>
+:root {
+  --bg: #f6f4ef;
+  --surface: #ffffff;
+  --surface-2: #ece9e1;
+  --text: #22201c;
+  --muted: #6f6a60;
+  --border: #d9d4c8;
+  --a: #1f8a5b;
+  --a-soft: #d6efe2;
+  --b: #c27a06;
+  --b-soft: #f8e7c4;
+  --absent: #a19b8f;
+  --primary: #2b2925;
+  --primary-text: #fdfcf9;
+  --danger: #b4412f;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.04);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513;
+    --surface: #211f1c;
+    --surface-2: #2c2a26;
+    --text: #efece6;
+    --muted: #a39d92;
+    --border: #3a3732;
+    --a: #47c48a;
+    --a-soft: #183a2a;
+    --b: #f0b13d;
+    --b-soft: #3d2f12;
+    --absent: #6c675e;
+    --primary: #efece6;
+    --primary-text: #161513;
+    --danger: #ef7a66;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--a);
+  outline-offset: 2px;
+}
+
+[hidden] { display: none !important; }
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: max(8px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+}
+
+/* Top bar */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.modes {
+  display: flex;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.mode {
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.mode[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.icons { margin-left: auto; display: flex; gap: 4px; }
+
+.icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+}
+
+/* Sub bar */
+.subbar {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.difficulty { display: flex; align-items: center; gap: 6px; }
+
+.difficulty [data-difficulty] {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.difficulty [aria-pressed="true"] {
+  border-color: var(--text);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.link {
+  margin-left: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* History */
+.board {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 2em 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: fade-in 0.25s ease-out;
+}
+
+.row-n { color: var(--muted); font-size: 0.85rem; text-align: right; }
+
+.row-digits {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+}
+
+.row-result { display: flex; gap: 4px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.tag { padding: 2px 8px; border-radius: 6px; font-size: 0.95rem; }
+.tag-a { background: var(--a-soft); color: var(--a); }
+.tag-b { background: var(--b-soft); color: var(--b); }
+
+.row.win { border-color: var(--a); }
+
+.empty-hint {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Entry */
+.status { padding: 10px 0 6px; }
+
+.entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.slots { display: flex; gap: 8px; }
+
+.slot {
+  width: 46px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+}
+
+.slot.filled { border-color: var(--text); }
+
+.count { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 3.5em; }
+
+.message {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.message.error { color: var(--danger); }
+
+/* Banner */
+.banner {
+  text-align: center;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  animation: fade-in 0.3s ease-out;
+}
+
+.banner-text { margin: 0 0 10px; font-size: 1.15rem; font-weight: 700; }
+
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.pill.primary { background: var(--primary); color: var(--primary-text); border-color: var(--primary); }
+
+.next { color: var(--muted); font-size: 0.9rem; }
+
+#countdown { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+
+.share-fallback {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: none;
+}
+
+#daily-label { font-weight: 600; color: var(--text); }
+
+/* Pad */
+.pad { padding-top: 6px; }
+
+.digits {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.key {
+  position: relative;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  font-size: 1.45rem;
+  font-weight: 700;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+.key:active { transform: scale(0.96); }
+
+.key.present { border-color: var(--a); color: var(--a); box-shadow: inset 0 0 0 2px var(--a); }
+
+.key.absent {
+  color: var(--absent);
+  background: var(--surface-2);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.action {
+  height: 50px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-weight: 600;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.action.primary { background: var(--primary); color: var(--primary-text); }
+
+.mark-toggle[aria-pressed="true"] {
+  background: var(--a-soft);
+  color: var(--a);
+  box-shadow: inset 0 0 0 2px var(--a);
+}
+
+.pad.marking .key { border-style: dashed; }
+
+button:disabled { opacity: 0.4; cursor: default; }
+
+/* Dialogs */
+.sheet {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  padding: 16px 18px 18px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgb(0 0 0 / 0.25);
+}
+
+.sheet[open] { animation: fade-in 0.2s ease-out; }
+
+.sheet::backdrop { background: rgb(0 0 0 / 0.45); }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sheet-head h2 { margin: 0; font-size: 1.2rem; }
+
+.sheet-foot {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sheet-foot:empty { display: none; }
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 14px;
+}
+
+.tabs [role="tab"] {
+  padding: 6px 0;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.tabs [aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 8px;
+}
+
+.card { text-align: center; }
+
+.card-value {
+  display: block;
+  font-size: 1.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-label { font-size: 0.8rem; color: var(--muted); }
+
+.dist-title { margin: 18px 0 8px; font-size: 0.95rem; }
+
+.dist { display: flex; flex-direction: column; gap: 4px; }
+
+.dist-row {
+  display: grid;
+  grid-template-columns: 2.4em 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.dist-label { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.dist-bar {
+  min-width: 1.8em;
+  padding: 2px 6px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+.dist-bar.current { background: var(--a); color: #fff; }
+
+.help { font-size: 0.95rem; line-height: 1.6; }
+.help p { margin: 0 0 8px; }
+.help ul { margin: 0 0 8px; padding-left: 1.2em; }
+.help h3 { margin: 14px 0 6px; font-size: 1rem; }
+.help .tag { margin-right: 4px; }
+
+.example {
+  padding: 8px 12px;
+  margin: 8px 0;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+
+.example p { margin: 0; }
+
+.mark-demo {
+  white-space: nowrap;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+}
+
+.mark-demo.present { border-color: var(--a); color: var(--a); }
+.mark-demo.absent { color: var(--absent); background: var(--surface-2); text-decoration: line-through; }
+
+kbd {
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 0.85em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+}
+
+/* Win celebration */
+.row.celebrate .tag { animation: pop 0.45s ease-out backwards; }
+.row.celebrate .tag:nth-child(2) { animation-delay: 0.08s; }
+.row.celebrate { animation: fade-in 0.25s ease-out, glow 1.2s ease-out 0.2s; }
+
+@keyframes pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+@keyframes glow {
+  0% { box-shadow: 0 0 0 0 var(--a); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+/* Motion */
+.shake { animation: shake 0.3s; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media (hover: hover) {
+  .key:hover, .action:hover, .icon:hover, .pill:hover { filter: brightness(0.96); }
+  .mode:hover { color: var(--text); }
+}
+
+/* Small phones */
+@media (max-width: 360px) {
+  .slot { width: 40px; height: 48px; font-size: 1.4rem; }
+  .key { height: 50px; }
+}
+
+/* Short screens */
+@media (max-height: 640px) {
+  .key { height: 46px; }
+  .action { height: 42px; }
+  .slot { height: 46px; }
+}
+</style>
 </head>
 <body>
   <div class="app">
@@ -110,6 +657,750 @@
     </div>
   </dialog>
 
-  <script type="module" src="src/ui.js"></script>
+  <script type="module">
+// ---- game.js ----
+// Mastermind-style scoring: a digit counts toward A+B at most as many times
+// as it appears in both the secret and the guess.
+function score(secret, guess) {
+  let a = 0;
+  const left = {};
+  for (let i = 0; i < guess.length; i++) {
+    if (guess[i] === secret[i]) a++;
+    left[secret[i]] = (left[secret[i]] ?? 0) + 1;
+  }
+  let common = 0;
+  for (const d of guess) {
+    if (left[d] > 0) {
+      left[d]--;
+      common++;
+    }
+  }
+  return { a, b: common - a };
+}
+
+function validateGuess(guess, length, history) {
+  if (guess.length !== length) return { ok: false, reason: 'length' };
+  if (history.includes(guess)) return { ok: false, reason: 'repeated' };
+  return { ok: true };
+}
+
+function randomSecret(length, rng = Math.random) {
+  let secret = '';
+  for (let i = 0; i < length; i++) {
+    secret += Math.floor(rng() * 10);
+  }
+  return secret;
+}
+
+const DIFFICULTIES = {
+  easy: { length: 3, maxGuesses: 8, label: '簡單' },
+  normal: { length: 4, maxGuesses: 10, label: '普通' },
+  hard: { length: 5, maxGuesses: 12, label: '困難' },
+};
+
+// ---- daily.js ----
+
+const DAILY_EPOCH = '2026-10-16';
+
+const DAY_MS = 864e5;
+const TAIWAN_OFFSET_MS = 8 * 3600e3;
+
+function dailyNumber(date, epoch = DAILY_EPOCH) {
+  const taiwanDay = Math.floor((date.getTime() + TAIWAN_OFFSET_MS) / DAY_MS);
+  const epochDay = Date.parse(epoch + 'T00:00:00Z') / DAY_MS;
+  return taiwanDay - epochDay + 1;
+}
+
+const DAILY_LENGTH = 4;
+const DAILY_MAX = 10;
+
+// Seeded PRNG. Do not change after launch: it would change past and current answers.
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function dailySecret(n) {
+  return randomSecret(DAILY_LENGTH, mulberry32(Math.imul(n, 2654435761) >>> 0));
+}
+
+function msUntilNextDay(date) {
+  const elapsed = (date.getTime() + TAIWAN_OFFSET_MS) % DAY_MS;
+  return DAY_MS - elapsed;
+}
+
+// ---- stats.js ----
+function emptyStats(maxGuesses) {
+  return {
+    played: 0,
+    wins: 0,
+    currentStreak: 0,
+    maxStreak: 0,
+    lastWinDay: null,
+    best: null,
+    dist: Array(maxGuesses + 1).fill(0),
+  };
+}
+
+function recordResult(stats, { won, guesses, dayNumber }) {
+  const dist = [...stats.dist];
+  dist[won ? guesses - 1 : dist.length - 1]++;
+  const next = {
+    ...stats,
+    played: stats.played + 1,
+    wins: stats.wins + (won ? 1 : 0),
+    best: won && (stats.best === null || guesses < stats.best) ? guesses : stats.best,
+    dist,
+  };
+  if (dayNumber !== undefined && won) {
+    next.currentStreak = stats.lastWinDay === dayNumber - 1 ? stats.currentStreak + 1 : 1;
+    next.maxStreak = Math.max(stats.maxStreak, next.currentStreak);
+    next.lastWinDay = dayNumber;
+  } else if (dayNumber !== undefined) {
+    next.currentStreak = 0;
+  }
+  return next;
+}
+
+// recordResult only runs on days that were played, so a missed day must be
+// detected at display time.
+function displayStreak(stats, todayNumber) {
+  return stats.lastWinDay !== null && stats.lastWinDay >= todayNumber - 1 ? stats.currentStreak : 0;
+}
+
+// ---- share.js ----
+
+function row({ a, b }) {
+  return '🟢'.repeat(a) + '🟡'.repeat(b) + '⚪'.repeat(DAILY_LENGTH - a - b);
+}
+
+function shareText(dayNumber, results, maxGuesses, url) {
+  const won = results.at(-1)?.a === DAILY_LENGTH;
+  const header = `1A2B 每日 #${dayNumber}  ${won ? results.length : 'X'}/${maxGuesses}`;
+  return [header, ...results.map(row), url].join('\n');
+}
+
+// ---- storage.js ----
+// localStorage can throw (private mode, blocked storage) or hold corrupted
+// data; both fall back silently so the game stays playable.
+
+function sameKind(value, fallback) {
+  if (fallback === null || fallback === undefined) return true;
+  if (Array.isArray(fallback)) return Array.isArray(value);
+  if (typeof fallback === 'object') return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return typeof value === typeof fallback;
+}
+
+function load(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    const value = JSON.parse(raw);
+    return sameKind(value, fallback) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function save(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // storage unavailable: keep playing without persistence
+  }
+}
+
+// ---- ui.js ----
+
+const KEYS = {
+  stats: '1a2b:v1:stats',
+  difficulty: '1a2b:v1:difficulty',
+  daily: '1a2b:v1:daily',
+  seenHelp: '1a2b:v1:seenHelp',
+};
+
+const MARK_CYCLE = { unknown: 'present', present: 'absent', absent: 'unknown' };
+const MARK_LABEL = { unknown: '', present: '（一定有）', absent: '（一定沒有）' };
+const LONG_PRESS_MS = 500;
+
+const ERRORS = {
+  length: (n) => `請輸入 ${n} 位數字`,
+  repeated: () => '這組已經猜過了',
+};
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- state ----------
+
+let difficulty = load(KEYS.difficulty, 'normal');
+if (!DIFFICULTIES[difficulty]) difficulty = 'normal';
+
+// Initialised at the bottom of the file, once every helper is defined.
+let stats;
+const games = { daily: null, practice: null };
+let game;
+let markMode = false;
+let celebrateNext = false;
+
+function validStats(s, maxGuesses) {
+  return (
+    s && typeof s === 'object' &&
+    typeof s.played === 'number' && typeof s.wins === 'number' &&
+    Array.isArray(s.dist) && s.dist.length === maxGuesses + 1
+  );
+}
+
+function loadStats() {
+  const raw = load(KEYS.stats, {});
+  const limits = { daily: DAILY_MAX, ...Object.fromEntries(Object.entries(DIFFICULTIES).map(([k, v]) => [k, v.maxGuesses])) };
+  const out = {};
+  for (const [kind, maxGuesses] of Object.entries(limits)) {
+    out[kind] = validStats(raw[kind], maxGuesses) ? raw[kind] : emptyStats(maxGuesses);
+  }
+  return out;
+}
+
+const freshMarks = () => Array(10).fill('unknown');
+
+function blankGame(fields) {
+  return { guesses: [], results: [], marks: freshMarks(), input: '', over: false, won: false, ...fields };
+}
+
+function newPractice(diff) {
+  const { length, maxGuesses } = DIFFICULTIES[diff];
+  return blankGame({ kind: 'practice', difficulty: diff, length, maxGuesses, secret: randomSecret(length) });
+}
+
+// A saved daily game from another day is dropped unrecorded: the streak
+// breaks on its own because that day has no win.
+function loadDaily(day) {
+  const g = blankGame({
+    kind: 'daily', day, length: DAILY_LENGTH, maxGuesses: DAILY_MAX, secret: dailySecret(day), recorded: false,
+  });
+  const saved = load(KEYS.daily, {});
+  if (saved.day !== day || !Array.isArray(saved.guesses)) return g;
+  for (const guess of saved.guesses.slice(0, DAILY_MAX)) {
+    if (g.over || !validateGuess(guess, DAILY_LENGTH, g.guesses).ok) break;
+    applyGuess(g, guess);
+  }
+  if (Array.isArray(saved.marks) && saved.marks.length === 10) g.marks = saved.marks;
+  g.recorded = saved.recorded === true;
+  if (g.over && !g.recorded) recordFinish(g);
+  return g;
+}
+
+function dailyRecordedElsewhere(g) {
+  const saved = load(KEYS.daily, {});
+  return saved.day === g.day && saved.recorded === true;
+}
+
+function saveDaily(g) {
+  // never clear a "recorded" flag another tab already wrote for this day
+  const recorded = g.recorded || dailyRecordedElsewhere(g);
+  save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, recorded });
+}
+
+const inProgress = (g) => g.guesses.length > 0 && !g.over;
+
+// ---------- game rules applied to state ----------
+
+function applyGuess(g, guess) {
+  const result = score(g.secret, guess);
+  g.guesses.push(guess);
+  g.results.push(result);
+  if (result.a === g.length) {
+    g.over = true;
+    g.won = true;
+  } else if (g.guesses.length >= g.maxGuesses) {
+    g.over = true;
+  }
+  return result;
+}
+
+function recordFinish(g) {
+  // Another tab may have saved newer stats since this page loaded: build on
+  // what is stored, not on this tab's copy, or that tab's result is lost.
+  stats = loadStats();
+  const result = { won: g.won, guesses: g.guesses.length };
+  if (g.kind === 'daily') {
+    if (g.recorded || dailyRecordedElsewhere(g)) {
+      g.recorded = true;
+      return;
+    }
+    stats.daily = recordResult(stats.daily, { ...result, dayNumber: g.day });
+    g.recorded = true;
+    saveDaily(g);
+  } else {
+    stats[g.difficulty] = recordResult(stats[g.difficulty], result);
+  }
+  save(KEYS.stats, stats);
+}
+
+// ---------- actions ----------
+
+function typeDigit(d) {
+  if (game.over) return;
+  if (game.input.length >= game.length) return;
+  game.input += d;
+  setMessage('');
+  render();
+}
+
+function toggleMark(d) {
+  if (game.over) return;
+  const i = Number(d);
+  game.marks[i] = MARK_CYCLE[game.marks[i]] ?? 'present';
+  if (game.kind === 'daily') saveDaily(game);
+  renderPad();
+}
+
+function setMarkMode(on) {
+  markMode = on;
+  renderPad();
+}
+
+function deleteDigit() {
+  if (game.over || !game.input) return;
+  game.input = game.input.slice(0, -1);
+  render();
+}
+
+function submit() {
+  if (game.over) return;
+  const check = validateGuess(game.input, game.length, game.guesses);
+  if (!check.ok) {
+    setMessage(ERRORS[check.reason](game.length), true);
+    shake($('slots'));
+    return;
+  }
+  const result = applyGuess(game, game.input);
+  game.input = '';
+  if (game.over) game.finishedDay = dailyNumber(new Date());
+  if (game.kind === 'daily') saveDaily(game);
+  if (game.over) recordFinish(game);
+  celebrateNext = game.won;
+  const answer = game.over && !game.won ? `，答案是 ${game.secret}` : '';
+  setMessage(`第 ${game.guesses.length} 次：${result.a}A${result.b}B${answer}`);
+  render();
+  if (game.over && game.kind === 'daily') {
+    const finished = game;
+    setTimeout(() => { if (game === finished) openStats(); }, 900);
+  }
+}
+
+function setMode(mode) {
+  if (game === games[mode]) return;
+  game = games[mode];
+  setMessage('');
+  render();
+}
+
+function chooseDifficulty(diff) {
+  if (diff === game.difficulty && !game.over) return;
+  if (inProgress(game) && !confirm('放棄目前這局？')) return;
+  difficulty = diff;
+  save(KEYS.difficulty, difficulty);
+  game = games.practice = newPractice(difficulty);
+  setMessage('');
+  render();
+}
+
+function newGame() {
+  if (inProgress(game) && !confirm('放棄目前這局？')) return;
+  game = games.practice = newPractice(game.difficulty);
+  setMessage('');
+  render();
+}
+
+function share(e) {
+  const button = e?.currentTarget;
+  const g = games.daily;
+  const url = location.origin + location.pathname;
+  const text = shareText(g.day, g.results, g.maxGuesses, url);
+  const fallback = () => showShareFallback(text);
+  if (!navigator.clipboard?.writeText) return fallback();
+  navigator.clipboard.writeText(text).then(() => {
+    setMessage('已複製戰績，貼給朋友吧！');
+    // the message line is hidden behind an open dialog, so confirm on the button too
+    if (button) {
+      button.textContent = '已複製！';
+      setTimeout(() => { button.textContent = '分享'; }, 1500);
+    }
+  }, fallback);
+}
+
+function showShareFallback(text) {
+  // inside the stats dialog when it is open, otherwise under the banner
+  const host = $('stats-dialog').open ? $('stats-foot') : $('banner');
+  let box = $('share-fallback');
+  if (!box || box.parentElement !== host) {
+    box?.remove();
+    box = document.createElement('textarea');
+    box.id = 'share-fallback';
+    box.className = 'share-fallback';
+    box.readOnly = true;
+    box.setAttribute('aria-label', '分享文字');
+    host.append(box);
+  }
+  box.value = text;
+  box.rows = text.split('\n').length;
+  box.focus();
+  box.select();
+  setMessage('無法自動複製，請手動複製上面的文字');
+}
+
+function swapInDaily(today) {
+  const wasShowing = game === games.daily;
+  games.daily = loadDaily(today);
+  if (wasShowing) {
+    game = games.daily;
+    setMessage('新的一題來了！');
+  }
+  render();
+  if ($('stats-dialog').open) renderStats();
+}
+
+// Called every second: keeps the countdown fresh and swaps in the new daily
+// puzzle at the first midnight after the daily game was finished. An
+// unfinished daily game keeps going until reload, and one finished after
+// midnight keeps its result on screen (with a link to today's puzzle).
+function tick() {
+  const today = dailyNumber(new Date());
+  const daily = games.daily;
+  if (daily.over && today > (daily.finishedDay ?? daily.day)) {
+    swapInDaily(today);
+    return;
+  }
+  const el = $('countdown');
+  if (el) el.textContent = formatCountdown(msUntilNextDay(new Date()));
+}
+
+function formatCountdown(ms) {
+  const s = Math.floor(ms / 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+// ---------- rendering ----------
+
+function shake(el) {
+  if (!el) return;
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+}
+
+function setMessage(text, isError = false) {
+  const m = $('message');
+  m.textContent = text;
+  m.classList.toggle('error', isError);
+}
+
+function buildDigits() {
+  const wrap = $('digits');
+  for (const d of '1234567890') {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'key';
+    b.dataset.digit = d;
+    b.textContent = d;
+    b.setAttribute('aria-label', `數字 ${d}`);
+    wrap.append(b);
+  }
+}
+
+let historyOwner = null;
+
+function renderHistory() {
+  const list = $('history');
+  if (historyOwner !== game || list.children.length > game.guesses.length) {
+    list.replaceChildren();
+    historyOwner = game;
+  }
+  const rendered = list.children.length;
+  for (let i = rendered; i < game.guesses.length; i++) {
+    const { a, b } = game.results[i];
+    const li = document.createElement('li');
+    const win = a === game.length;
+    li.className = 'row' + (win ? ' win' : '') + (win && celebrateNext ? ' celebrate' : '');
+    li.innerHTML = `
+      <span class="row-n">${i + 1}.</span>
+      <span class="row-digits">${game.guesses[i]}</span>
+      <span class="row-result" aria-label="${a}A${b}B">
+        <span class="tag tag-a">${a}A</span><span class="tag tag-b">${b}B</span>
+      </span>`;
+    list.append(li);
+  }
+  celebrateNext = false;
+  $('empty-hint').hidden = game.guesses.length > 0;
+  if (list.children.length > rendered) list.lastElementChild.scrollIntoView({ block: 'nearest' });
+}
+
+function renderEntry() {
+  const slots = $('slots');
+  slots.replaceChildren();
+  for (let i = 0; i < game.length; i++) {
+    const s = document.createElement('span');
+    s.className = 'slot' + (game.input[i] ? ' filled' : '');
+    s.textContent = game.input[i] ?? '';
+    slots.append(s);
+  }
+  $('count').textContent = `${game.guesses.length}/${game.maxGuesses}`;
+  $('entry').hidden = game.over;
+}
+
+function pill(label, onClick, primary = false) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pill' + (primary ? ' primary' : '');
+  b.textContent = label;
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+function renderBanner() {
+  const banner = $('banner');
+  banner.hidden = !game.over;
+  $('share-fallback')?.remove();
+  if (!game.over) return;
+  $('banner-text').textContent = game.won
+    ? `🎉 第 ${game.guesses.length} 次猜中！`
+    : `答案是 ${game.secret}`;
+  const actions = $('banner-actions');
+  actions.replaceChildren();
+  if (game.kind === 'daily') {
+    actions.append(pill('分享', share, true), pill('統計', () => openStats()));
+    const today = dailyNumber(new Date());
+    if (game.day !== today) {
+      actions.append(pill('前往今天的題目', () => swapInDaily(today)));
+    } else {
+      const next = document.createElement('span');
+      next.className = 'next';
+      next.innerHTML = '下一題 <span id="countdown"></span>';
+      actions.append(next);
+      $('countdown').textContent = formatCountdown(msUntilNextDay(new Date()));
+    }
+  } else {
+    actions.append(pill('再來一局', newGame, true));
+  }
+}
+
+function renderPad() {
+  for (const key of document.querySelectorAll('.key')) {
+    const d = key.dataset.digit;
+    const mark = game.marks[Number(d)];
+    key.classList.toggle('present', mark === 'present');
+    key.classList.toggle('absent', mark === 'absent');
+    key.setAttribute('aria-label', `數字 ${d}${MARK_LABEL[mark] ?? ''}`);
+    key.disabled = game.over;
+  }
+  $('mark-btn').setAttribute('aria-pressed', String(markMode));
+  $('mark-btn').disabled = game.over;
+  document.querySelector('.pad').classList.toggle('marking', markMode && !game.over);
+  $('del-btn').disabled = game.over;
+  $('enter-btn').disabled = game.over;
+}
+
+function renderBars() {
+  for (const b of document.querySelectorAll('.mode')) {
+    b.setAttribute('aria-pressed', String(b.dataset.mode === game.kind));
+  }
+  $('difficulty').hidden = game.kind !== 'practice';
+  $('daily-label').hidden = game.kind !== 'daily';
+  if (game.kind === 'daily') $('daily-label').textContent = `每日挑戰 #${game.day}`;
+  for (const b of document.querySelectorAll('[data-difficulty]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.difficulty === game.difficulty));
+  }
+}
+
+function render() {
+  renderBars();
+  renderHistory();
+  renderEntry();
+  renderBanner();
+  renderPad();
+}
+
+// ---------- dialogs ----------
+
+let statsTab = 'daily';
+
+function openStats(tab = game.kind === 'daily' ? 'daily' : game.difficulty) {
+  statsTab = tab;
+  renderStats();
+  const dialog = $('stats-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+
+function card(value, label) {
+  return `<div class="card"><span class="card-value">${value}</span><span class="card-label">${label}</span></div>`;
+}
+
+function renderStats() {
+  const s = stats[statsTab];
+  for (const t of document.querySelectorAll('#stats-tabs [role="tab"]')) {
+    t.setAttribute('aria-selected', String(t.dataset.tab === statsTab));
+  }
+  const winRate = s.played ? Math.round((s.wins / s.played) * 100) : 0;
+  const cards = [card(s.played, '遊玩次數'), card(winRate, '勝率 %')];
+  if (statsTab === 'daily') {
+    cards.push(card(displayStreak(s, dailyNumber(new Date())), '目前連勝'), card(s.maxStreak, '最長連勝'));
+  } else {
+    cards.push(card(s.best ?? '–', '最佳次數'));
+  }
+  $('stat-cards').innerHTML = cards.join('');
+
+  // highlight the bar of the game that just finished, if it belongs to this tab
+  const shown = statsTab === 'daily' ? games.daily : games.practice.difficulty === statsTab ? games.practice : null;
+  const current = shown?.over ? (shown.won ? shown.guesses.length - 1 : s.dist.length - 1) : -1;
+  const peak = Math.max(1, ...s.dist);
+  $('dist').innerHTML = s.dist
+    .map((n, i) => {
+      const label = i === s.dist.length - 1 ? '失敗' : i + 1;
+      const width = Math.max(8, Math.round((n / peak) * 100));
+      return `<div class="dist-row"><span class="dist-label">${label}</span>` +
+        `<span class="dist-bar${i === current ? ' current' : ''}" style="width:${width}%">${n}</span></div>`;
+    })
+    .join('');
+
+  const foot = $('stats-foot');
+  foot.replaceChildren();
+  if (statsTab === 'daily' && games.daily.over) foot.append(pill('分享', share, true));
+}
+
+function openHelp() {
+  const dialog = $('help-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+
+// ---------- events ----------
+
+// e.code identifies the physical key, so Shift+3 is still "3" (e.key would be
+// "#"); fall back to e.key for keyboards or tools that leave code empty.
+function digitFromEvent(e) {
+  const m = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
+  if (m) return m[1];
+  return /^\d$/.test(e.key) ? e.key : null;
+}
+
+function onKeyDown(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (document.querySelector('dialog[open]')) return;
+  if (e.target instanceof HTMLTextAreaElement) return;
+  const d = digitFromEvent(e);
+  if (d !== null) {
+    e.preventDefault();
+    // typing a guess moves focus off any button clicked earlier, so the
+    // Enter that follows submits instead of re-activating that button
+    if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
+    if (e.shiftKey) toggleMark(d);
+    else typeDigit(d);
+  } else if (e.key === 'Backspace') {
+    e.preventDefault();
+    deleteDigit();
+  } else if (e.key === 'Enter') {
+    // Enter keeps its native meaning on result-banner buttons and on buttons
+    // reached by keyboard (focus ring visible); otherwise it submits.
+    const t = e.target;
+    if (t instanceof HTMLButtonElement && !t.closest('.pad') && (t.closest('.banner') || t.matches(':focus-visible'))) return;
+    e.preventDefault();
+    submit();
+  }
+}
+
+// Long-press on touch marks a digit; the click that follows the press is
+// swallowed so the digit isn't also typed.
+function wireDigitKeys() {
+  const digits = $('digits');
+  let pressTimer = null;
+  let swallowClick = false;
+  let lastPointer = 'mouse';
+  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+
+  digits.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('.key');
+    lastPointer = e.pointerType;
+    swallowClick = false;
+    if (!key || e.pointerType === 'mouse') return;
+    pressTimer = setTimeout(() => {
+      swallowClick = true;
+      toggleMark(key.dataset.digit);
+      navigator.vibrate?.(15);
+    }, LONG_PRESS_MS);
+  });
+  for (const type of ['pointerup', 'pointerleave', 'pointercancel']) {
+    digits.addEventListener(type, cancelPress);
+  }
+
+  digits.addEventListener('click', (e) => {
+    const key = e.target.closest('.key');
+    if (!key) return;
+    if (swallowClick) {
+      swallowClick = false;
+      return;
+    }
+    if (markMode) toggleMark(key.dataset.digit);
+    else typeDigit(key.dataset.digit);
+  });
+
+  // Right-click marks with a mouse; on touch the long-press timer already did.
+  digits.addEventListener('contextmenu', (e) => {
+    const key = e.target.closest('.key');
+    if (!key) return;
+    e.preventDefault();
+    if (lastPointer === 'mouse') toggleMark(key.dataset.digit);
+  });
+}
+
+function wireDialogs() {
+  for (const dialog of document.querySelectorAll('dialog')) {
+    for (const b of dialog.querySelectorAll('.close')) b.addEventListener('click', () => dialog.close());
+    // a click on the backdrop lands on the dialog element itself
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+  }
+  $('stats-btn').addEventListener('click', () => openStats());
+  $('help-btn').addEventListener('click', openHelp);
+  $('stats-tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]');
+    if (t) { statsTab = t.dataset.tab; renderStats(); }
+  });
+}
+
+function wire() {
+  buildDigits();
+  wireDigitKeys();
+  wireDialogs();
+  $('mark-btn').addEventListener('click', () => setMarkMode(!markMode));
+  $('del-btn').addEventListener('click', deleteDigit);
+  $('enter-btn').addEventListener('click', submit);
+  for (const b of document.querySelectorAll('.mode')) {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+  }
+  $('difficulty').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-difficulty]');
+    if (b) chooseDifficulty(b.dataset.difficulty);
+  });
+  $('new-game').addEventListener('click', newGame);
+  document.addEventListener('keydown', onKeyDown);
+  setInterval(tick, 1000);
+}
+
+stats = loadStats();
+games.daily = loadDaily(dailyNumber(new Date()));
+games.practice = newPractice(difficulty);
+game = games.daily;
+
+wire();
+render();
+
+if (!load(KEYS.seenHelp, false)) {
+  openHelp();
+  save(KEYS.seenHelp, true);
+}
+</script>
 </body>
 </html>

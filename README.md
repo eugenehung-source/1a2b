@@ -26,20 +26,23 @@
 
 ## 技術
 
-純 HTML / CSS / JavaScript（ES modules），沒有建置步驟，直接由 GitHub Pages 提供。遊戲規則放在可測試的純函式模組（`src/game.js`、`daily.js`、`stats.js`、`share.js`），以 [Vitest](https://vitest.dev/) 測試；`src/ui.js` 只負責畫面與操作。
+純 HTML / CSS / JavaScript，不用框架。**網站本身是根目錄的單一 [`index.html`](index.html)**，CSS 與 JavaScript 都內嵌在裡面，直接由 GitHub Pages 提供。
 
-本機執行測試：
+為了方便測試，原始碼分檔放在 `src/`：遊戲規則是可測試的純函式模組（`game.js`、`daily.js`、`stats.js`、`share.js`），以 [Vitest](https://vitest.dev/) 測試；`ui.js` 只負責畫面與操作。`scripts/build.mjs` 把它們合併成單一 `index.html`。
 
 ```bash
 npm install
-npm test
+npm test          # 執行測試（含檢查 index.html 是否已重新合併）
+npm run build     # 修改 src/ 之後，重新產生 index.html
 ```
 
-本機預覽（ES modules 需要透過 HTTP 載入）：
+本機預覽：
 
 ```bash
 npx serve .
 ```
+
+完整的規格請見 **[規格書](規格書.md)**。
 
 ## 開發過程
 
@@ -47,7 +50,7 @@ npx serve .
 
 1. **發想（brainstorming）**：和 AI 一問一答，從「做個小遊戲」收斂到「1A2B 猜數字＋每日挑戰＋筆記＋統計」，比較三種技術做法後選擇純 JS + Vitest。
 2. **拷問（grilling）**：AI 逐輪追問被默默假設的細節，例如跨午夜怎麼換題、放棄的局算不算輸、重複數字何時擋、每日答案能被看穿要不要防，共 24 個決策。
-3. **規格**：定案寫成 [設計規格](docs/superpowers/specs/2026-10-14-1a2b-game-design.md)。
+3. **規格**：定案寫成 [規格書](規格書.md)（開發用的詳細版：[設計規格](docs/superpowers/specs/2026-10-14-1a2b-game-design.md)）。
 4. **實作計畫**：拆成 9 個任務的 [實作計畫](docs/superpowers/plans/2026-10-16-1a2b-game.md)。
 5. **垂直 TDD 實作**：每個規則都是「先寫一個會失敗的測試 → 寫剛好讓它通過的程式」一個切片接一個切片完成；畫面部分在手機與桌機尺寸實際操作驗收。
 6. **部署**：GitHub Actions 每次 push 自動跑測試，GitHub Pages 發布網頁。

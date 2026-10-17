@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="每天一題的 1A2B 猜數字遊戲，也可以自由練習。">
+  <title>1A2B 每日猜數字</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔢</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <h1 class="logo">1A2B</h1>
+      <div class="modes" role="group" aria-label="模式">
+        <button type="button" class="mode" data-mode="daily" aria-pressed="false">每日</button>
+        <button type="button" class="mode" data-mode="practice" aria-pressed="false">練習</button>
+      </div>
+      <div class="icons">
+        <button type="button" class="icon" id="help-btn" aria-label="遊戲說明">❓</button>
+        <button type="button" class="icon" id="stats-btn" aria-label="統計">📊</button>
+      </div>
+    </header>
+
+    <div class="subbar">
+      <span id="daily-label" hidden></span>
+      <div id="difficulty" class="difficulty" role="group" aria-label="難度" hidden>
+        <button type="button" data-difficulty="easy" aria-pressed="false">簡單</button>
+        <button type="button" data-difficulty="normal" aria-pressed="false">普通</button>
+        <button type="button" data-difficulty="hard" aria-pressed="false">困難</button>
+        <button type="button" id="new-game" class="link">新的一局</button>
+      </div>
+    </div>
+
+    <main class="board">
+      <ol id="history" class="history" aria-label="猜測紀錄"></ol>
+      <p id="empty-hint" class="empty-hint">輸入一組數字，看看有幾 A 幾 B。</p>
+    </main>
+
+    <section class="status">
+      <div id="entry" class="entry">
+        <div id="slots" class="slots" aria-label="目前輸入"></div>
+        <span id="count" class="count"></span>
+      </div>
+      <div id="banner" class="banner" hidden>
+        <p id="banner-text" class="banner-text"></p>
+        <div id="banner-actions" class="banner-actions"></div>
+      </div>
+      <p id="message" class="message" aria-live="polite"></p>
+    </section>
+
+    <section class="pad" aria-label="數字鍵盤">
+      <div id="digits" class="digits"></div>
+      <div class="actions">
+        <button type="button" id="del-btn" class="action">刪除</button>
+        <button type="button" id="mark-btn" class="action mark-toggle" aria-pressed="false" aria-label="標記模式">✏️ 標記</button>
+        <button type="button" id="enter-btn" class="action primary">送出</button>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="stats-dialog" class="sheet" aria-labelledby="stats-title">
+    <div class="sheet-head">
+      <h2 id="stats-title">統計</h2>
+      <button type="button" class="icon close" aria-label="關閉">✕</button>
+    </div>
+    <div id="stats-tabs" class="tabs" role="tablist" aria-label="統計分類">
+      <button type="button" role="tab" data-tab="daily">每日</button>
+      <button type="button" role="tab" data-tab="easy">簡單</button>
+      <button type="button" role="tab" data-tab="normal">普通</button>
+      <button type="button" role="tab" data-tab="hard">困難</button>
+    </div>
+    <div id="stat-cards" class="cards"></div>
+    <h3 class="dist-title">猜測次數分布</h3>
+    <div id="dist" class="dist"></div>
+    <div id="stats-foot" class="sheet-foot"></div>
+  </dialog>
+
+  <dialog id="help-dialog" class="sheet" aria-labelledby="help-title">
+    <div class="sheet-head">
+      <h2 id="help-title">怎麼玩</h2>
+      <button type="button" class="icon close" aria-label="關閉">✕</button>
+    </div>
+    <div class="help">
+      <p>猜出一組數字（可以 0 開頭，<strong>數字可能重複</strong>）。每猜一次會告訴你：</p>
+      <ul>
+        <li><span class="tag tag-a">A</span> 數字對、位置也對</li>
+        <li><span class="tag tag-b">B</span> 數字對，但位置不對</li>
+      </ul>
+      <div class="example">
+        <p>例：答案是 <b>1234</b>，你猜 <b>1325</b></p>
+        <p>→ <span class="tag tag-a">1A</span><span class="tag tag-b">2B</span>（1 位置對；3、2 有但位置錯）</p>
+      </div>
+      <div class="example">
+        <p>重複的數字：答案是 <b>1123</b>，你猜 <b>1111</b></p>
+        <p>→ <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>（答案只有兩個 1，所以只算兩次）</p>
+      </div>
+      <h3>兩種模式</h3>
+      <ul>
+        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，所有人同一題，猜完可以分享戰績。</li>
+        <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。</li>
+      </ul>
+      <h3>筆記標記</h3>
+      <p>開啟「✏️ 標記」後點數字，可以標成 <span class="mark-demo present">一定有</span> → <span class="mark-demo absent">一定沒有</span> → 取消。也可以長按數字、按右鍵，或按 <kbd>Shift</kbd> + 數字。</p>
+      <h3>鍵盤</h3>
+      <p><kbd>0</kbd>–<kbd>9</kbd> 輸入、<kbd>Backspace</kbd> 刪除、<kbd>Enter</kbd> 送出。</p>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="pill primary close">開始玩</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="ui.js"></script>
+</body>
+</html>

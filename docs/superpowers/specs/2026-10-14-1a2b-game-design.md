@@ -137,20 +137,25 @@ https://<帳號>.github.io/1a2b/
 
 ## 7. 技術與架構
 
-純 HTML/CSS/JS（ES modules），無建置步驟，直接部署 GitHub Pages。Node 只用於跑 Vitest。支援近兩年主流瀏覽器（Chrome、Edge、Safari、Firefox，含 iOS Safari、Android Chrome）。不做 PWA／離線。
+純 HTML/CSS/JS，部署在 GitHub Pages。支援近兩年主流瀏覽器（Chrome、Edge、Safari、Firefox，含 iOS Safari、Android Chrome）。不做 PWA／離線。
+
+2026-10-18 變更（作業要求「整理成單一 index.html」）：原始碼仍分檔放在 `src/`，以零依賴的 `scripts/build.mjs`（`npm run build`）把 CSS 與所有模組內嵌成根目錄的單一 `index.html`；各模組合併到同一個 script 範圍，頂層名稱不可重複。測試 seam `buildSingleFile()`（已與使用者確認）：不引用外部 CSS/JS、無殘留 import/export 且可被解析、內容完整、根目錄 `index.html` 與產出一致（CI 據此檢查是否忘了重新合併）。
 
 ```
 1a2b/
-├─ index.html
-├─ style.css
+├─ index.html      產出的單一檔案（GitHub Pages 提供這個）
+├─ 規格書.md        給人讀的規格書（作業交付）
+├─ scripts/build.mjs  合併 src/ → index.html
 ├─ src/
+│  ├─ index.html   頁面模板（引用 style.css、ui.js，開發時可直接用）
+│  ├─ style.css
 │  ├─ game.js      核心規則（純函式）
 │  ├─ daily.js     每日題號與答案（純函式）
 │  ├─ stats.js     統計計算（純函式）
 │  ├─ share.js     分享文字（純函式）
 │  ├─ storage.js   localStorage 讀寫（薄包裝、容錯）
 │  └─ ui.js        DOM、事件、鍵盤；串接上述模組
-├─ tests/          Vitest，只測 game / daily / stats / share
+├─ tests/          Vitest：game / daily / stats / share / build
 ├─ .github/workflows/test.yml   push 時跑 Vitest
 ├─ README.md
 └─ package.json    唯一 devDependency：vitest
