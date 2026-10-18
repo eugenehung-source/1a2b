@@ -355,6 +355,42 @@ button:focus-visible {
 
 #daily-label { font-weight: 600; color: var(--text); }
 
+.daily-bar { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+
+.archive-hint { margin: 0 0 10px; font-size: 0.85rem; color: var(--muted); }
+
+.archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(60dvh, 480px);
+  overflow-y: auto;
+}
+
+.arch-item {
+  display: grid;
+  grid-template-columns: 3.2em 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.arch-item.current { border-color: var(--text); }
+
+.arch-n { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.arch-date { color: var(--muted); font-size: 0.9rem; }
+
+.arch-status { font-size: 0.9rem; font-weight: 600; }
+.arch-status.todo { color: var(--muted); font-weight: 400; }
+.arch-status.doing { color: var(--b); }
+.arch-status.won { color: var(--a); }
+.arch-status.lost { color: var(--danger); }
+
 /* Pad */
 .pad { padding-top: 6px; }
 

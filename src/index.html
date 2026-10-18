@@ -23,7 +23,11 @@
     </header>
 
     <div class="subbar">
-      <span id="daily-label" hidden></span>
+      <div id="daily-bar" class="daily-bar" hidden>
+        <span id="daily-label"></span>
+        <button type="button" id="today-btn" class="link" hidden>回到今天</button>
+        <button type="button" id="archive-btn" class="link">過去題目</button>
+      </div>
       <div id="difficulty" class="difficulty" role="group" aria-label="難度" hidden>
         <button type="button" data-difficulty="easy" aria-pressed="false">簡單</button>
         <button type="button" data-difficulty="normal" aria-pressed="false">普通</button>
@@ -82,6 +86,15 @@
     <div id="stats-foot" class="sheet-foot"></div>
   </dialog>
 
+  <dialog id="archive-dialog" class="sheet" aria-labelledby="archive-title">
+    <div class="sheet-head">
+      <h2 id="archive-title">過去的題目</h2>
+      <button type="button" class="icon close" aria-label="關閉">✕</button>
+    </div>
+    <p class="archive-hint">補玩的結果不會計入統計和連勝。</p>
+    <div id="archive-list" class="archive-list"></div>
+  </dialog>
+
   <dialog id="help-dialog" class="sheet" aria-labelledby="help-title">
     <div class="sheet-head">
       <h2 id="help-title">怎麼玩</h2>
@@ -103,9 +116,11 @@
       </div>
       <h3>兩種模式</h3>
       <ul>
-        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，答案數字<strong>不重複</strong>，所有人同一題，猜完可以分享戰績。</li>
+        <li><b>每日</b>：每天一題（台灣時間 00:00 換題），4 位數、10 次，答案數字<strong>不重複</strong>，所有人同一題，猜完可以分享戰績。漏玩的題目可以從「過去題目」補玩（不計入統計和連勝）。</li>
         <li><b>練習</b>：隨時開新局，可選 3／4／5 位數。打開「可重複」，答案就可能有重複數字（例：答案 <b>1123</b>、猜 <b>1111</b> → <span class="tag tag-a">2A</span><span class="tag tag-b">0B</span>），比較難。</li>
       </ul>
+      <h3>計時與賽後分析</h3>
+      <p>從輸入第一個數字開始計時，離開畫面時會暫停。每局結束後，每一步旁邊會顯示「還剩幾種可能」，看看哪一步猜得最有效。</p>
       <h3>筆記標記</h3>
       <p>開啟「✏️ 標記」後點數字，可以標成 <span class="mark-demo present">一定有</span> → <span class="mark-demo absent">一定沒有</span> → 取消。也可以長按數字、按右鍵，或按 <kbd>Shift</kbd> + 數字。</p>
       <h3>鍵盤</h3>

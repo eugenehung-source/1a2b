@@ -202,9 +202,16 @@ https://<帳號>.github.io/1a2b/
 
 中文，包含：遊玩網址、玩法、功能清單、本機跑測試指令、「開發過程」（brainstorming → grilling → spec → TDD 實作）並連到本 spec。
 
+## 2026-10-18 追加功能（使用者要求，照常見做法設計）
+
+- **賽後分析**：`analysis.js` 的 `totalCandidates(length, repeats)`、`remainingCounts(guesses, results, length, repeats)`（已確認 seam）。只在遊戲結束後於每列顯示「剩 N 種可能」，上方顯示總數。
+- **計時**：`time.js` 的 `formatDuration(ms)`；`recordResult` 接受 `timeMs` 並記錄 `bestTime`（只算贏的局、相容舊統計）；`shareText(..., timeMs)` 在標題加 `⏱m:ss`（皆已確認 seam）。時鐘從第一個數字開始、`visibilitychange` 隱藏時暫停，只有畫面上的那局在跑；每日局的 `elapsed` 隨進度存檔。
+- **補玩過去每日題**：`1a2b:v1:archive` 以題號存每局 `{guesses, marks, elapsed}`，每日局每次存檔都同步寫入，所以前一天沒玩完的也能從列表繼續。補玩局 `kind: 'archive'`，不計統計、不能分享、不自動開統計。僅 UI，以瀏覽器驗收。
+- 雙人同機對戰：提案後使用者決定不做。
+
 ## 不在範圍內
 
 - 電腦猜玩家、雙人對戰
 - 帳號、雲端同步、排行榜
-- 自動推理或提示功能
-- PWA／離線、音效、主題切換鈕、多語系
+- 遊戲進行中的自動推理或提示（賽後分析只在結束後）
+- PWA／離線（需額外 sw.js，與單一 index.html 要求衝突）、音效、主題切換鈕、多語系

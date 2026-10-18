@@ -1,5 +1,5 @@
 import { DIFFICULTIES, score, validateGuess, randomSecret } from './game.js';
-import { dailyNumber, dailySecret, msUntilNextDay, DAILY_LENGTH, DAILY_MAX } from './daily.js';
+import { dailyNumber, dailySecret, msUntilNextDay, DAILY_EPOCH, DAILY_LENGTH, DAILY_MAX } from './daily.js';
 import { emptyStats, recordResult, displayStreak } from './stats.js';
 import { shareText } from './share.js';
 import { totalCandidates, remainingCounts } from './analysis.js';
@@ -10,6 +10,7 @@ const KEYS = {
   stats: '1a2b:v1:stats',
   difficulty: '1a2b:v1:difficulty',
   repeats: '1a2b:v1:repeats',
+  archive: '1a2b:v1:archive', // { [day]: { guesses, marks, elapsed } } for every daily puzzle touched
   daily: '1a2b:v1:daily',
   seenHelp: '1a2b:v1:seenHelp',
 };
@@ -82,20 +83,31 @@ function newPractice(diff, rep) {
   });
 }
 
-// A saved daily game from another day is dropped unrecorded: the streak
-// breaks on its own because that day has no win.
-function loadDaily(day) {
-  const g = blankGame({
-    kind: 'daily', day, length: DAILY_LENGTH, maxGuesses: DAILY_MAX, secret: dailySecret(day), recorded: false,
-  });
-  const saved = load(KEYS.daily, {});
-  if (saved.day !== day || !Array.isArray(saved.guesses)) return g;
-  for (const guess of saved.guesses.slice(0, DAILY_MAX)) {
-    if (g.over || !validateGuess(guess, DAILY_LENGTH, g.guesses).ok) break;
+function dailyGame(kind, day) {
+  return blankGame({ kind, day, length: DAILY_LENGTH, maxGuesses: DAILY_MAX, secret: dailySecret(day) });
+}
+
+// Replays saved guesses (dropping anything invalid) and restores marks/time.
+function restoreProgress(g, saved) {
+  if (!saved || !Array.isArray(saved.guesses)) return g;
+  for (const guess of saved.guesses.slice(0, g.maxGuesses)) {
+    if (g.over || typeof guess !== 'string' || !/^\d+$/.test(guess) || !validateGuess(guess, g.length, g.guesses).ok) break;
     applyGuess(g, guess);
   }
   if (Array.isArray(saved.marks) && saved.marks.length === 10) g.marks = saved.marks;
   if (Number.isFinite(saved.elapsed) && saved.elapsed > 0) g.elapsed = saved.elapsed;
+  return g;
+}
+
+// A saved daily game from another day is dropped unrecorded (the streak
+// breaks on its own because that day has no win); it stays playable from
+// the archive, which mirrors every daily save.
+function loadDaily(day) {
+  const g = dailyGame('daily', day);
+  g.recorded = false;
+  const saved = load(KEYS.daily, {});
+  if (saved.day !== day) return g;
+  restoreProgress(g, saved);
   g.recorded = saved.recorded === true;
   if (g.over && !g.recorded) recordFinish(g);
   return g;
@@ -112,9 +124,23 @@ function saveDaily(g) {
   save(KEYS.daily, { day: g.day, guesses: g.guesses, marks: g.marks, elapsed: elapsedOf(g), recorded });
 }
 
+const loadArchive = () => load(KEYS.archive, {});
+
+// Replays of past daily puzzles never touch stats or streaks.
+function loadArchiveGame(day) {
+  return restoreProgress(dailyGame('archive', day), loadArchive()[day]);
+}
+
+function saveToArchive(g) {
+  const archive = loadArchive();
+  archive[g.day] = { guesses: g.guesses, marks: g.marks, elapsed: elapsedOf(g) };
+  save(KEYS.archive, archive);
+}
+
 // Saves whatever kind of game this is (practice games are not saved).
 function persist(g) {
   if (g.kind === 'daily') saveDaily(g);
+  if (g.kind === 'daily' || g.kind === 'archive') saveToArchive(g);
 }
 
 const inProgress = (g) => g.guesses.length > 0 && !g.over;
@@ -155,6 +181,7 @@ function applyGuess(g, guess) {
 }
 
 function recordFinish(g) {
+  if (g.kind === 'archive') return;
   // Another tab may have saved newer stats since this page loaded: build on
   // what is stored, not on this tab's copy, or that tab's result is lost.
   stats = loadStats();
@@ -467,6 +494,8 @@ function renderBanner() {
       actions.append(next);
       $('countdown').textContent = formatCountdown(msUntilNextDay(new Date()));
     }
+  } else if (game.kind === 'archive') {
+    actions.append(pill('回到今天', () => openPuzzle(dailyNumber(new Date())), true), pill('過去題目', openArchive));
   } else {
     actions.append(pill('再來一局', newGame, true));
   }
@@ -490,11 +519,15 @@ function renderPad() {
 
 function renderBars() {
   for (const b of document.querySelectorAll('.mode')) {
-    b.setAttribute('aria-pressed', String(b.dataset.mode === game.kind));
+    // a replayed past puzzle lives under the 每日 tab
+    b.setAttribute('aria-pressed', String(b.dataset.mode === (game.kind === 'archive' ? 'daily' : game.kind)));
   }
   $('difficulty').hidden = game.kind !== 'practice';
-  $('daily-label').hidden = game.kind !== 'daily';
-  if (game.kind === 'daily') $('daily-label').textContent = `每日挑戰 #${game.day}`;
+  $('daily-bar').hidden = game.kind === 'practice';
+  $('today-btn').hidden = game.kind !== 'archive';
+  if (game.kind !== 'practice') {
+    $('daily-label').textContent = `每日挑戰 #${game.day}${game.kind === 'archive' ? '（補玩）' : ''}`;
+  }
   for (const b of document.querySelectorAll('[data-difficulty]')) {
     b.setAttribute('aria-pressed', String(b.dataset.difficulty === game.difficulty));
   }
@@ -514,7 +547,7 @@ function render() {
 let statsTab = 'daily';
 let statsRepeats = false; // which variant the practice tabs show
 
-function openStats(tab = game.kind === 'daily' ? 'daily' : game.difficulty) {
+function openStats(tab = game.kind === 'practice' ? game.difficulty : 'daily') {
   statsTab = tab;
   statsRepeats = games.practice.repeats;
   renderStats();
@@ -563,6 +596,56 @@ function renderStats() {
   const foot = $('stats-foot');
   foot.replaceChildren();
   if (statsTab === 'daily' && games.daily.over) foot.append(pill('分享', share, true));
+}
+
+// ----- past puzzles -----
+
+function openArchive() {
+  renderArchive();
+  const dialog = $('archive-dialog');
+  if (!dialog.open) dialog.showModal();
+}
+
+function puzzleDate(n) {
+  const d = new Date(Date.parse(DAILY_EPOCH + 'T00:00:00Z') + (n - 1) * 864e5);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+}
+
+function statusOf(g) {
+  if (g.guesses.length === 0) return { text: '未玩', cls: 'todo' };
+  if (!g.over) return { text: `進行中 ${g.guesses.length}/${g.maxGuesses}`, cls: 'doing' };
+  return g.won ? { text: `✅ ${g.guesses.length} 次`, cls: 'won' } : { text: '❌ 沒猜中', cls: 'lost' };
+}
+
+function renderArchive() {
+  const today = dailyNumber(new Date());
+  const archive = loadArchive();
+  const list = $('archive-list');
+  list.replaceChildren();
+  for (let day = today; day >= 1; day--) {
+    const g = day === today ? games.daily : restoreProgress(dailyGame('archive', day), archive[day]);
+    const { text, cls } = statusOf(g);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'arch-item' + (game.day === day && game.kind !== 'practice' ? ' current' : '');
+    b.innerHTML =
+      `<span class="arch-n">#${day}</span>` +
+      `<span class="arch-date">${puzzleDate(day)}${day === today ? '・今天' : ''}</span>` +
+      `<span class="arch-status ${cls}">${text}</span>`;
+    b.addEventListener('click', () => openPuzzle(day));
+    list.append(b);
+  }
+}
+
+function openPuzzle(day) {
+  $('archive-dialog').close();
+  // save the current game first: a past puzzle is (re)loaded from storage
+  pauseClock(game);
+  persist(game);
+  game = day === dailyNumber(new Date()) ? games.daily : (games.archive = loadArchiveGame(day));
+  resumeClockIfStarted(game);
+  setMessage('');
+  render();
 }
 
 function openHelp() {
@@ -657,6 +740,8 @@ function wireDialogs() {
   }
   $('stats-btn').addEventListener('click', () => openStats());
   $('help-btn').addEventListener('click', openHelp);
+  $('archive-btn').addEventListener('click', openArchive);
+  $('today-btn').addEventListener('click', () => openPuzzle(dailyNumber(new Date())));
   $('stats-tabs').addEventListener('click', (e) => {
     const t = e.target.closest('[data-tab]');
     if (t) { statsTab = t.dataset.tab; renderStats(); }
